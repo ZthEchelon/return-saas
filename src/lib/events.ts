@@ -1,0 +1,32 @@
+//event type + fetch helper
+
+export type EventType = "RENEWAL" | "RETURN_DEADLINE" | "REFUND_CHECK" | "BILL_DUE";
+
+export type CalendarEvent = {
+  id: string;
+  type: EventType;
+  date: string; // YYYY-MM-DD
+  title: string;
+  amountCents?: number;
+  currency?: string;
+  billStatus?: "DUE" | "PAID";
+  monthKey?: string;
+  source: { kind: "subscription" | "return" | "bill"; sourceId: string };
+};
+
+export function formatMoney(amountCents?: number, currency = "CAD") {
+  if (amountCents == null) return "";
+  return new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amountCents / 100);
+}
+
+export function ymKey(d: Date) {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function toISODateOnlyUTC(d: Date) {
+  return d.toISOString().slice(0, 10);
+}

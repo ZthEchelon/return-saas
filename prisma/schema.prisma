@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+//core tables being used 
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SubscriptionCadence {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum ReturnStatus {
+  NOT_STARTED
+  PACKED
+  DROPPED_OFF
+  REFUNDED
+}
+
+model Subscription {
+  id           String             @id @default(cuid())
+  userId       String             // Clerk userId
+  name         String
+  amountCents  Int
+  currency     String             @default("CAD")
+  renewalDate  DateTime
+  cadence      SubscriptionCadence @default(MONTHLY)
+  status       SubscriptionStatus  @default(ACTIVE)
+  cancelUrl    String?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([userId, renewalDate])
+}
+
+model ReturnItem {
+  id              String      @id @default(cuid())
+  userId          String      // Clerk userId
+  store           String
+  itemNote        String?
+  amountCents     Int?
+  currency        String      @default("CAD")
+  purchaseDate    DateTime
+  returnWindowDays Int        @default(30)
+  returnBy        DateTime
+  status          ReturnStatus @default(NOT_STARTED)
+  dropoffDate     DateTime?
+  refundedDate    DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId, returnBy])
+}
+
+//schema for adding bill paid status
+enum BillStatus {
+  ACTIVE
+  PAUSED
+}
+
+model Bill {
+  id            String     @id @default(cuid())
+  userId        String
+  name          String
+  amountCents   Int?
+  currency      String     @default("CAD")
+  dueDayOfMonth Int        // 1..31
+  autopay       Boolean    @default(false)
+  payee         String?
+  notes         String?
+  status        BillStatus @default(ACTIVE)
+
+  payments      BillPayment[]
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([userId, status])
+}
+
+model BillPayment {
+  id          String   @id @default(cuid())
+  userId      String
+  billId      String
+  monthKey    String   // "YYYY-MM"
+  dueDate     DateTime
+  paidAt      DateTime?
+  amountCents Int?
+  currency    String   @default("CAD")
+  notes       String?
+
+  bill        Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([billId, monthKey])
+  @@index([userId, monthKey])
+}

@@ -1,0 +1,18 @@
+#need docker file because we will be having a db thus post gres being used  
+
+services:
+  db:
+    image: postgres:18
+    container_name: returns_saas_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: returns_saas
+    ports:
+    #using port 5434 to avoid possible conflicts with other projects
+      - "5434:5432"
+    volumes:
+      - returns_saas_pg:/var/lib/postgresql
+
+volumes:
+  returns_saas_pg:
