@@ -21,11 +21,14 @@ export default async function BillDetailPage({
     notFound();
   }
 
+  type PaymentRow = { paidAt: Date | null; amountCents: number | null };
+  const payments = bill.payments as PaymentRow[];
+
   const stats = {
-    total: bill.payments.length,
-    paid: bill.payments.filter(p => p.paidAt).length,
-    unpaid: bill.payments.filter(p => !p.paidAt).length,
-    totalPaid: bill.payments
+    total: payments.length,
+    paid: payments.filter(p => p.paidAt).length,
+    unpaid: payments.filter(p => !p.paidAt).length,
+    totalPaid: payments
       .filter(p => p.paidAt)
       .reduce((sum, p) => sum + (p.amountCents ?? 0), 0),
   };
