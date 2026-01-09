@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { CalendarEvent } from "@/lib/events";
 import { formatMoney } from "@/lib/events";
 
@@ -88,6 +89,13 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Filter state
+  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set(["BILL", "SUBSCRIPTION", "RETURN"]));
+  const [autopayOnly, setAutopayOnly] = useState(false);
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  
   const [showAddBill, setShowAddBill] = useState(false);
   const [payAmount, setPayAmount] = useState<string>(""); // dollars input like "120.50"
   const [payNotes, setPayNotes] = useState<string>("");
@@ -164,9 +172,47 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
   const grid = useMemo(() => buildMonthGrid(month), [month]);
 
+  // Apply filters
+  const filteredEvents = useMemo(() => {
+    const now = new Date();
+    const today = toISODateOnlyUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
+    
+    return events.filter(e => {
+      // Type filter
+      let matchesType = false;
+      if (filterTypes.has("BILL") && e.type === "BILL_DUE") matchesType = true;
+      if (filterTypes.has("SUBSCRIPTION") && (e.type === "RENEWAL" || e.type === "CANCELLED_SUBSCRIPTION")) matchesType = true;
+      if (filterTypes.has("RETURN") && (e.type === "RETURN_DEADLINE" || e.type === "REFUND_CHECK" || e.type === "REFUND_EXPECTED" || e.type === "REFUNDED")) matchesType = true;
+      if (!matchesType) return false;
+
+      // Autopay filter
+      if (autopayOnly && !e.autopay) return false;
+
+      // Overdue filter
+      if (overdueOnly) {
+        if (e.type === "BILL_DUE" && e.billStatus !== "PAID" && e.date < today) {
+          // Overdue unpaid bill
+        } else if (e.type === "RETURN_DEADLINE" && e.date < today) {
+          // Overdue return
+        } else {
+          return false;
+        }
+      }
+
+      // Search filter (merchant/store)
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const title = e.title.toLowerCase();
+        if (!title.includes(query)) return false;
+      }
+
+      return true;
+    });
+  }, [events, filterTypes, autopayOnly, overdueOnly, searchQuery]);
+
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    for (const e of events) {
+    for (const e of filteredEvents) {
       if (!map.has(e.date)) map.set(e.date, []);
       map.get(e.date)!.push(e);
     }
@@ -175,22 +221,22 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
       map.set(k, arr);
     }
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const upcoming = useMemo(() => {
     const now = new Date();
     const today = toISODateOnlyUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
-    return [...events]
+    return [...filteredEvents]
       .filter(e => e.date >= today)
       .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.type.localeCompare(b.type)))
       .slice(0, 12);
-  }, [events]);
+  }, [filteredEvents]);
 
   const monthStartISO = useMemo(() => toISODateOnlyUTC(startOfMonthUTC(month)), [month]);
   const monthEndISO = useMemo(() => toISODateOnlyUTC(addMonthsUTC(month, 1)), [month]);
 
   const completed = useMemo(() => {
-    return events
+    return filteredEvents
       .filter(e => e.date >= monthStartISO && e.date < monthEndISO)
       .filter(
         e =>
@@ -441,12 +487,12 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+    <div className="grid gap-5 lg:grid-cols-[2.6fr_1fr] xl:grid-cols-[2.8fr_1fr]">
       {/* Calendar */}
-      <div className="rounded-2xl border bg-white/80 p-5 shadow-sm">
+      <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-2xl font-semibold text-slate-900">{monthLabel}</div>
+            <div className="text-3xl font-semibold text-slate-900">{monthLabel}</div>
             <div className="text-sm text-slate-500">Renewals, return deadlines, refund checks, and bills.</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -476,6 +522,101 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
           <span className="rounded-full bg-indigo-100 px-3 py-1 font-semibold text-indigo-800">Bill due</span>
         </div>
 
+        {/* Filter Controls */}
+        <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4 shadow-inner">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+            <span>Filters:</span>
+          </div>
+          
+          {/* Type filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                const next = new Set(filterTypes);
+                if (next.has("BILL")) next.delete("BILL");
+                else next.add("BILL");
+                setFilterTypes(next);
+              }}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                filterTypes.has("BILL")
+                  ? "border-indigo-300 bg-indigo-100 text-indigo-800"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Bills {filterTypes.has("BILL") && "✓"}
+            </button>
+            <button
+              onClick={() => {
+                const next = new Set(filterTypes);
+                if (next.has("SUBSCRIPTION")) next.delete("SUBSCRIPTION");
+                else next.add("SUBSCRIPTION");
+                setFilterTypes(next);
+              }}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                filterTypes.has("SUBSCRIPTION")
+                  ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Subscriptions {filterTypes.has("SUBSCRIPTION") && "✓"}
+            </button>
+            <button
+              onClick={() => {
+                const next = new Set(filterTypes);
+                if (next.has("RETURN")) next.delete("RETURN");
+                else next.add("RETURN");
+                setFilterTypes(next);
+              }}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                filterTypes.has("RETURN")
+                  ? "border-cyan-300 bg-cyan-100 text-cyan-800"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Returns {filterTypes.has("RETURN") && "✓"}
+            </button>
+            <button
+              onClick={() => setAutopayOnly(!autopayOnly)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                autopayOnly
+                  ? "border-violet-300 bg-violet-100 text-violet-800"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Autopay only {autopayOnly && "✓"}
+            </button>
+            <button
+              onClick={() => setOverdueOnly(!overdueOnly)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                overdueOnly
+                  ? "border-rose-300 bg-rose-100 text-rose-800"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Overdue only {overdueOnly && "✓"}
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search by merchant or store..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => setShowAddBill(true)}>
             + Bill
@@ -494,7 +635,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-3">
           {grid.map(({ date, inMonth }) => {
             const key = toISODateOnlyUTC(date);
             const dayEvents = eventsByDate.get(key) ?? [];
@@ -512,42 +653,46 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
             return (
               <div
                 key={key}
-                className={`relative min-h-30 rounded-xl border p-2 transition ${
+                className={`relative min-h-40 min-w-[160px] md:min-w-[180px] rounded-2xl border p-3 transition ${
                   inMonth ? "bg-white hover:border-slate-300" : "bg-slate-50 text-slate-400"
                 } ${isToday ? "ring-2 ring-slate-900 ring-offset-2 ring-offset-white" : ""}`}
               >
                 <div className="flex items-start justify-between">
-                  <div className={`text-xs font-semibold ${isToday ? "text-slate-900" : "text-slate-600"}`}>{dayNum}</div>
+                  <div className={`text-sm font-semibold ${isToday ? "text-slate-900" : "text-slate-600"}`}>{dayNum}</div>
                   <div className="flex items-center gap-1">
                     {completedOnDay > 0 ? (
-                      <span className="text-sm" title={`${completedOnDay} task${completedOnDay > 1 ? "s" : ""} completed`}>⭐</span>
+                      <span className="text-base" title={`${completedOnDay} task${completedOnDay > 1 ? "s" : ""} completed`}>⭐</span>
                     ) : null}
-                    {dayEvents.length > 2 ? (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">+{dayEvents.length - 2}</span>
+                    {dayEvents.length > 3 ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">+{dayEvents.length - 3}</span>
                     ) : null}
                   </div>
                 </div>
 
-                <div className="mt-2 space-y-2">
-                  {dayEvents.slice(0, 2).map(ev => (
+                <div className="mt-3 space-y-2">
+                  {dayEvents.slice(0, 3).map(ev => (
                     <button
                       key={ev.id}
-                      className={`w-full rounded-lg border border-transparent px-2 py-2 text-left text-xs shadow-sm transition hover:border-slate-200 ${cardClass(ev)}`}
+                      className={`w-full rounded-xl border border-transparent px-3 py-2 text-left text-xs shadow-sm transition hover:border-slate-200 ${cardClass(ev)}`}
                       onClick={() => setSelected(ev)}
                       title={ev.title}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-semibold text-slate-900">{ev.title}</span>
-                        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
+                        <span className="flex-1 truncate font-semibold text-slate-900">{ev.title}</span>
+                        <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
                           {ev.type.replaceAll("_", " ").toLowerCase()}
                         </span>
                       </div>
-                      {ev.amountCents != null || (ev.type === "BILL_DUE" && ev.autopay) ? (
-                        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-600">
-                          <span>{ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}</span>
-                          {ev.type === "BILL_DUE" && ev.autopay ? (
-                            <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">autopay</span>
-                          ) : null}
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-slate-600">
+                        <span className="truncate">{ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}</span>
+                        {ev.type === "BILL_DUE" && ev.autopay ? (
+                          <span className="shrink-0 rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">autopay</span>
+                        ) : null}
+                      </div>
+                      {ev.source.kind === "return" && (ev.returnBy || ev.purchaseDate) ? (
+                        <div className="mt-1 text-[10px] text-slate-500">
+                          {ev.purchaseDate ? `Purchased ${ev.purchaseDate}` : ""}{ev.purchaseDate && ev.returnBy ? " · " : ""}
+                          {ev.returnBy ? `Return by ${ev.returnBy}` : ""}
                         </div>
                       ) : null}
                     </button>
@@ -566,17 +711,17 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
       <div className="space-y-4">
         {/* Upcoming */}
-        <div className="rounded-2xl border bg-white/80 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-900">Upcoming</div>
-            <div className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
-          </div>
-          <div className="mt-3 space-y-3">
-            {upcoming.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
-                Nothing scheduled. Add a bill, subscription, or return to see it here.
-              </div>
-            ) : (
+      <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="text-base font-semibold text-slate-900">Upcoming</div>
+          <div className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
+        </div>
+        <div className="mt-3 space-y-3">
+          {upcoming.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+              Nothing scheduled. Add a bill, subscription, or return to see it here.
+            </div>
+          ) : (
               upcoming.map(ev => (
                 <button
                   key={ev.id}
@@ -607,9 +752,9 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
         {/* Completed */}
         {completed.length > 0 ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+          <div className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-5 shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-emerald-900">⭐ Completed this month</div>
+              <div className="text-base font-semibold text-emerald-900">⭐ Completed this month</div>
               <div className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white">{completed.length} items</div>
             </div>
             <div className="mt-3 space-y-2">
@@ -647,7 +792,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
       {selected ? (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white p-6 shadow-xl">
+          <div className="absolute right-0 top-0 h-full w-full max-w-[420px] bg-white p-5 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-lg font-semibold">{selected.title}</div>
@@ -673,22 +818,32 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                   {selected.source.kind} · {selected.source.sourceId.slice(0, 8)}…
                 </span>
               </div>
-              {selected.source.kind === "return" ? (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="opacity-70">Purchase date</span>
-                    <span>{selected.purchaseDate ?? "Unknown"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="opacity-70">Return by</span>
-                    <span>{selected.returnBy ?? "Potential return date not set"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="opacity-70">Tracking #</span>
-                    <span>{selected.trackingNumber && selected.trackingNumber.length ? selected.trackingNumber : "Not provided"}</span>
-                  </div>
-                </>
-              ) : null}
+            {selected.source.kind === "return" ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-70">Purchase date</span>
+                  <span>{selected.purchaseDate ?? "Unknown"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-70">Return by</span>
+                  <span>{selected.returnBy ?? "Potential return date not set"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-70">Tracking #</span>
+                  <span>{selected.trackingNumber && selected.trackingNumber.length ? selected.trackingNumber : "Not provided"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-70">Follow up</span>
+                  <Link
+                    className="pill-link"
+                    href={`https://www.google.com/search?q=${encodeURIComponent((selected.title || "customer service") + " refund")}`}
+                    target="_blank"
+                  >
+                    Contact merchant
+                  </Link>
+                </div>
+              </>
+            ) : null}
             </div>
 
             {selected.type === "BILL_DUE" ? (

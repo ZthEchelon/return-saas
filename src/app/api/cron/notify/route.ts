@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   const billTargetISO = isoDateOnly(billTarget);
 
   // Parallelize all queries for faster execution
-  const [subs, returns, bills, dropped] = await Promise.all([
+  const [subs, returns, bills, dropped, refundOverdue] = await Promise.all([
     // 1) Subscriptions that renew in SUB_LEAD_DAYS
     prisma.subscription.findMany({
       where: {
@@ -77,6 +77,14 @@ export async function POST(req: Request) {
         status: { not: "REFUNDED" },
       },
       select: { id: true, userId: true, store: true, dropoffDate: true, amountCents: true, currency: true },
+    }),
+    // 5) Refund overdue: expected date passed and not refunded
+    prisma.returnItem.findMany({
+      where: {
+        refundExpectedBy: { not: null, lt: today },
+        refundedDate: null,
+      },
+      select: { id: true, userId: true, store: true, refundExpectedBy: true, amountCents: true, currency: true },
     }),
   ]);
 
@@ -212,6 +220,27 @@ export async function POST(req: Request) {
         })
       );
     }
+  }
+
+  // Refund overdue notifications
+  for (const r of refundOverdue) {
+    const expectedISO = r.refundExpectedBy ? isoDateOnly(r.refundExpectedBy) : "date unknown";
+    const title = `Refund overdue: ${r.store}`;
+    const body = `Expected by ${expectedISO}. Follow up to recover your refund.`;
+    const eventKey = `refund_overdue:${r.id}:${expectedISO}`;
+
+    creates.push(
+      upsertNotif({
+        userId: r.userId,
+        type: "REFUND_OVERDUE" as NotificationType,
+        title,
+        body,
+        eventDate: r.refundExpectedBy ?? undefined,
+        sourceKind: "return",
+        sourceId: r.id,
+        eventKey,
+      })
+    );
   }
 
   const results = await Promise.allSettled(creates);

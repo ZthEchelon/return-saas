@@ -40,7 +40,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-md">
-          <nav className="mx-auto max-w-6xl px-5 py-3">
+          <nav className="mx-auto max-w-7xl px-6 py-3">
             <div className="flex flex-wrap items-center gap-6">
               {/* Logo & Home Links */}
               <div className="flex items-center gap-4">
@@ -92,7 +92,7 @@ export default function RootLayout({
             </div>
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-6xl px-5 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
       </body>
     </html>
     </ClerkProvider>

@@ -1,8 +1,7 @@
-//create digest cron sends one email per user per day using the notifcationf from cron otify
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { buildDigestForUser } from "@/lib/notifications/digest";
 
 export const runtime = "nodejs";
 
@@ -13,66 +12,42 @@ function mustBeCron(req: Request) {
   if (got !== secret) throw new Error("Forbidden");
 }
 
-// Minimal timezone support without extra deps:
-// We’ll compute “today” in user timezone using Intl.
-function localDateKey(timezone: string, d = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .formatToParts(d)
-    .reduce<Record<string, string>>((acc, p) => {
-      if (p.type !== "literal") acc[p.type] = p.value;
-      return acc;
-    }, {});
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
-
-function localHour(timezone: string, d = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-  const hh = parts.find(p => p.type === "hour")?.value ?? "00";
-  return Number(hh);
-}
-
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function renderDigestEmail(args: {
-  appUrl: string;
-  items: { title: string; body?: string | null }[];
-}) {
-  const { appUrl, items } = args;
-
-  const list = items
-    .map(
-      i => `
-      <tr>
-        <td style="padding:10px 0;border-bottom:1px solid #eee;">
-          <div style="font-weight:600;">${escapeHtml(i.title)}</div>
-          ${i.body ? `<div style="color:#555;margin-top:4px;">${escapeHtml(i.body)}</div>` : ""}
-        </td>
-      </tr>
-    `
-    )
-    .join("");
+function renderDigestEmail(args: { appUrl: string; digest: NonNullable<Awaited<ReturnType<typeof buildDigestForUser>>>["digest"] }) {
+  const { appUrl, digest } = args;
+  const renderSection = (title: string, items: { title: string; date: string; amount?: string; link?: string }[]) => {
+    if (!items.length) return "";
+    return `
+      <h3 style="margin:12px 0 6px 0;">${escapeHtml(title)}</h3>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        ${items
+          .map(
+            i => `
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #eee;">
+                <div style="font-weight:600;">${escapeHtml(i.title)}</div>
+                <div style="color:#555;">${escapeHtml(i.date)}${i.amount ? ` · ${escapeHtml(i.amount)}` : ""}</div>
+                ${i.link ? `<div><a href="${appUrl}${i.link}" style="color:#2563eb;text-decoration:none;">View</a></div>` : ""}
+              </td>
+            </tr>
+          `
+          )
+          .join("")}
+      </table>
+    `;
+  };
 
   return `
   <div style="font-family: ui-sans-serif, system-ui; line-height:1.4; color:#111;">
-    <h2 style="margin:0 0 8px 0;">Your Looply digest</h2>
-    <div style="color:#555;margin-bottom:16px;">
-      Here’s what’s coming up. Open the app to take action.
-    </div>
+    <h2 style="margin:0 0 8px 0;">${escapeHtml(digest.subject)}</h2>
+    <div style="color:#555;margin-bottom:16px;">Returns: ${digest.counts.returns} · Bills: ${digest.counts.bills} · Subs: ${digest.counts.subs} · Overdue: ${digest.counts.overdue}</div>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-      ${list || `<tr><td style="padding:10px 0;color:#555;">No reminders today.</td></tr>`}
-    </table>
+    ${renderSection("Returns", digest.sections.returns)}
+    ${renderSection("Bills", digest.sections.bills)}
+    ${renderSection("Subscriptions", digest.sections.subs)}
 
     <div style="margin-top:18px;">
       <a href="${appUrl}/dashboard/calendar" style="display:inline-block;padding:10px 14px;border:1px solid #ddd;border-radius:12px;text-decoration:none;color:#111;">
@@ -99,75 +74,60 @@ export async function POST(req: Request) {
 
   const appUrl = process.env.APP_URL || "http://localhost:3000";
 
-  // Users with digest enabled
   const prefs = await prisma.notificationPreference.findMany({
     where: { emailDigestEnabled: true },
-    select: { userId: true, timezone: true, digestHourLocal: true, windowDays: true },
+    select: { userId: true, timezone: true, digestHourLocal: true },
   });
 
   let sent = 0;
   let skipped = 0;
+  const errors: Array<{ userId: string; error: string }> = [];
 
   for (const p of prefs) {
     const tz = p.timezone || "America/Toronto";
-
-    // only send at the configured local hour
-    const hh = localHour(tz);
-    if (hh !== p.digestHourLocal) {
+    const now = new Date();
+    const localHour = new Intl.DateTimeFormat("en-CA", { timeZone: tz, hour: "2-digit", hour12: false })
+      .formatToParts(now)
+      .find(part => part.type === "hour")?.value;
+    if (localHour && Number(localHour) !== p.digestHourLocal) {
       skipped++;
       continue;
     }
 
-    const dateKey = localDateKey(tz);
+    const built = await buildDigestForUser(p.userId, now);
+    if (!built) {
+      skipped++;
+      continue;
+    }
+    const { digest, dateLocal } = built;
 
-    // idempotency: one per day
-    const existing = await prisma.digestSendLog.findUnique({
-      where: { userId_dateLocal: { userId: p.userId, dateLocal: dateKey } },
-      select: { id: true },
-    });
-    if (existing) {
+    // idempotency: one per local day
+    try {
+      await prisma.digestRun.create({ data: { userId: p.userId, digestDate: dateLocal } });
+    } catch {
       skipped++;
       continue;
     }
 
-    // get the user’s email from Clerk user table IF you store it.
-    // If you don’t yet store email, you need to add it (recommended).
-    const acct = await prisma.emailConnection.findUnique({
-      where: { userId: p.userId },
-      select: { emailAddress: true },
-    });
-    const to = acct?.emailAddress;
+    // Use primaryEmail stored in prefs
+    const pref = await prisma.notificationPreference.findUnique({ where: { userId: p.userId }, select: { primaryEmail: true } });
+    const to = pref?.primaryEmail;
     if (!to) {
       skipped++;
       continue;
     }
 
-    // pull undismissed notifications in the last N days (simple window)
-    const since = new Date();
-    since.setUTCDate(since.getUTCDate() - Math.max(1, Math.min(30, p.windowDays)));
-
-    const notifs = await prisma.notification.findMany({
-      where: {
-        userId: p.userId,
-        dismissedAt: null,
-        createdAt: { gte: since },
-      },
-      orderBy: [{ scheduledFor: "desc" }, { createdAt: "desc" }],
-      take: 50,
-      select: { title: true, body: true },
-    });
-
-    const subject = `Your Looply digest — ${notifs.length} reminder${notifs.length === 1 ? "" : "s"}`;
-    const html = renderDigestEmail({ appUrl, items: notifs });
-
-    await sendEmail({ to, subject, html });
-
-    await prisma.digestSendLog.create({
-      data: { userId: p.userId, dateLocal: dateKey },
-    });
-
-    sent++;
+    try {
+      await sendEmail({
+        to,
+        subject: digest.subject,
+        html: renderDigestEmail({ appUrl, digest }),
+      });
+      sent++;
+    } catch (error) {
+      errors.push({ userId: p.userId, error: error instanceof Error ? error.message : String(error) });
+    }
   }
 
-  return NextResponse.json({ ok: true, sent, skipped, totalEnabled: prefs.length });
+  return NextResponse.json({ ok: true, sent, skipped, errors, totalEnabled: prefs.length });
 }

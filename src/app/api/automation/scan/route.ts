@@ -64,8 +64,27 @@ export async function POST(req: Request) {
       const raw = msg.data.raw;
       if (!raw) continue;
 
-      purchase = await parsePurchaseFromRawGmailMessage({ messageId: id, raw });
-      parsed++;
+      let parserError: string | null = null;
+      try {
+        purchase = await parsePurchaseFromRawGmailMessage({ messageId: id, raw });
+        parsed++;
+      } catch (error) {
+        parserError = error instanceof Error ? error.message : String(error);
+        console.error(`Parser error for message ${id}:`, parserError);
+        // Continue to create transaction record with error logged
+        purchase = {
+          messageId: id,
+          merchant: "Parse Failed",
+          rawSource: "text",
+          fromEmail: undefined,
+          subject: undefined,
+          purchasedAt: undefined,
+          orderId: undefined,
+          totalCents: undefined,
+          currency: "CAD",
+          items: undefined,
+        };
+      }
 
       tx = await prisma.emailTransaction.upsert({
         where: { provider_messageId: { provider: "GMAIL", messageId: id } },
@@ -73,26 +92,28 @@ export async function POST(req: Request) {
           userId,
           provider: "GMAIL",
           messageId: id,
-          merchant: purchase.merchant,
-          fromEmail: purchase.fromEmail ?? null,
-          subject: purchase.subject ?? null,
-          purchasedAt: purchase.purchasedAt ?? null,
-          orderId: purchase.orderId ?? null,
-          totalCents: purchase.totalCents ?? null,
-          currency: (purchase.currency ?? "CAD").toUpperCase(),
-          items: purchase.items ? (purchase.items as unknown as Prisma.InputJsonValue) : undefined,
-          rawSource: purchase.rawSource,
+          merchant: purchase!.merchant,
+          fromEmail: purchase!.fromEmail ?? null,
+          subject: purchase!.subject ?? null,
+          purchasedAt: purchase!.purchasedAt ?? null,
+          orderId: purchase!.orderId ?? null,
+          totalCents: purchase!.totalCents ?? null,
+          currency: (purchase!.currency ?? "CAD").toUpperCase(),
+          items: purchase!.items ? (purchase!.items as unknown as Prisma.InputJsonValue) : undefined,
+          rawSource: purchase!.rawSource,
+          parserError,
         },
         update: {
-          merchant: purchase.merchant,
-          fromEmail: purchase.fromEmail ?? null,
-          subject: purchase.subject ?? null,
-          purchasedAt: purchase.purchasedAt ?? null,
-          orderId: purchase.orderId ?? null,
-          totalCents: purchase.totalCents ?? null,
-          currency: (purchase.currency ?? "CAD").toUpperCase(),
-          items: purchase.items ? (purchase.items as unknown as Prisma.InputJsonValue) : undefined,
-          rawSource: purchase.rawSource,
+          merchant: purchase!.merchant,
+          fromEmail: purchase!.fromEmail ?? null,
+          subject: purchase!.subject ?? null,
+          purchasedAt: purchase!.purchasedAt ?? null,
+          orderId: purchase!.orderId ?? null,
+          totalCents: purchase!.totalCents ?? null,
+          currency: (purchase!.currency ?? "CAD").toUpperCase(),
+          items: purchase!.items ? (purchase!.items as unknown as Prisma.InputJsonValue) : undefined,
+          rawSource: purchase!.rawSource,
+          parserError,
         },
       });
 

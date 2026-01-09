@@ -263,6 +263,7 @@ model EmailTransaction {
   currency    String  @default("CAD")
   items       Json?
   rawSource   String
+  parserError String?   // Store parser errors for debugging
 
   receiptDocuments ReceiptDocument[]
 
@@ -333,6 +334,7 @@ enum NotificationType {
   RETURN_DEADLINE_SOON
   BILL_DUE_SOON
   REFUND_CHECK_DUE
+  REFUND_OVERDUE
 }
 
 model Notification {
@@ -391,4 +393,14 @@ model DigestSendLog {
   // Idempotency
   @@unique([userId, dateLocal])
   @@index([userId, sentAt])
+}
+
+model DigestRun {
+  id        String   @id @default(cuid())
+  userId    String
+  digestDate String  // user's local date "YYYY-MM-DD"
+  createdAt DateTime @default(now())
+
+  @@unique([userId, digestDate])
+  @@index([userId, digestDate])
 }
