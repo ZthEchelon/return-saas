@@ -7,17 +7,29 @@ export default async function ReturnsPage() {
   const { userId } = await auth();
   if (!userId) return <div>Unauthorized</div>;
 
-  const returns = await prisma.returnItem.findMany({
+  type ReturnRow = {
+    id: string;
+    store: string;
+    itemNote: string | null;
+    amountCents: number | null;
+    currency: string;
+    purchaseDate: Date;
+    returnBy: Date;
+    refundAmountCents: number | null;
+    status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+  };
+
+  const returns: ReturnRow[] = await prisma.returnItem.findMany({
     where: { userId },
     orderBy: { returnBy: "desc" },
   });
 
   const stats = {
     total: returns.length,
-    refunded: returns.filter(r => r.status === "REFUNDED").length,
-    inProgress: returns.filter(r => r.status !== "REFUNDED").length,
+    refunded: returns.filter((r: ReturnRow) => r.status === "REFUNDED").length,
+    inProgress: returns.filter((r: ReturnRow) => r.status !== "REFUNDED").length,
     totalRefunded: returns
-      .filter(r => r.status === "REFUNDED")
+      .filter((r: ReturnRow) => r.status === "REFUNDED")
       .reduce((sum, r) => sum + (r.refundAmountCents ?? 0), 0),
   };
 
