@@ -24,7 +24,17 @@ export default async function ReceiptsPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const uploads = await prisma.receiptUpload.findMany({
+  type UploadRow = {
+    id: string;
+    filename: string;
+    contentType: string;
+    sizeBytes: number;
+    status: string;
+    createdAt: Date;
+    error: string | null;
+  };
+
+  const uploads: UploadRow[] = await prisma.receiptUpload.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
     take: 50,
