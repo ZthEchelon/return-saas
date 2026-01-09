@@ -1,7 +1,6 @@
 //one scheduler file 
 
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 
 // ---------- date helpers (UTC day buckets) ----------
 function startOfDayUTC(d: Date) {
@@ -56,7 +55,7 @@ async function dismissStaleBySource(args: {
   sourceIdStartsWith?: string;
   keepEventKeys: string[];
 }) {
-  const where: Prisma.NotificationWhereInput = {
+  const where: any = {
     userId: args.userId,
     sourceKind: args.sourceKind,
     dismissedAt: null,
