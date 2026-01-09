@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 //clerk imports
 import {
   ClerkProvider,
@@ -93,6 +94,7 @@ export default function RootLayout({
           </nav>
         </header>
         <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
+        <SpeedInsights />
       </body>
     </html>
     </ClerkProvider>
