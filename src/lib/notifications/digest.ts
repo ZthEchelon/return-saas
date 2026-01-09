@@ -26,10 +26,11 @@ export async function buildDigestForUser(userId: string, now: Date, tz = "Americ
 
   if (!notifs.length) return null;
 
-  const returns = notifs.filter(n => ["RETURN_DEADLINE_SOON", "REFUND_CHECK_DUE", "REFUND_OVERDUE"].includes(n.type));
-  const bills = notifs.filter(n => n.type === "BILL_DUE_SOON");
-  const subs = notifs.filter(n => n.type === "SUBSCRIPTION_RENEWAL_SOON");
-  const overdue = notifs.filter(n => n.type === "REFUND_OVERDUE").length;
+  type Notif = typeof notifs[number];
+  const returns = notifs.filter((n: Notif) => ["RETURN_DEADLINE_SOON", "REFUND_CHECK_DUE", "REFUND_OVERDUE"].includes(n.type));
+  const bills = notifs.filter((n: Notif) => n.type === "BILL_DUE_SOON");
+  const subs = notifs.filter((n: Notif) => n.type === "SUBSCRIPTION_RENEWAL_SOON");
+  const overdue = notifs.filter((n: Notif) => n.type === "REFUND_OVERDUE").length;
 
   const sections = {
     returns: returns.map(n => ({ title: n.title, date: n.body ?? iso(n.eventDate), link: "/dashboard/calendar" })),
