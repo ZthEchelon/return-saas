@@ -68,14 +68,14 @@ export async function POST(req: NextRequest) {
         purchase = {
           messageId: tx.messageId,
           merchant: "Parse Failed",
-          rawSource: raw,
-          fromEmail: null,
-          subject: null,
-          purchasedAt: null,
-          orderId: null,
-          totalCents: null,
+          rawSource: "text",
+          fromEmail: undefined,
+          subject: undefined,
+          purchasedAt: undefined,
+          orderId: undefined,
+          totalCents: undefined,
           currency: "CAD",
-          items: null,
+          items: undefined,
         };
         failed++;
         errors.push({ messageId: tx.messageId, error: parserError });
