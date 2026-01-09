@@ -1,7 +1,7 @@
 //one scheduler file 
 
 import { prisma } from "@/lib/prisma";
-import { NotificationType, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 // ---------- date helpers (UTC day buckets) ----------
 function startOfDayUTC(d: Date) {
@@ -22,7 +22,7 @@ function clampDayToMonth(year: number, monthZero: number, day: number) {
 
 async function upsertNotification(args: {
   userId: string;
-  type: NotificationType;
+  type: string;
   title: string;
   body?: string;
   eventDate?: Date;
@@ -35,7 +35,7 @@ async function upsertNotification(args: {
     where: { userId_eventKey: { userId: args.userId, eventKey: args.eventKey } },
     create: {
       userId: args.userId,
-      type: args.type,
+      type: args.type as any,
       title: args.title,
       body: args.body,
       eventDate: args.eventDate,
