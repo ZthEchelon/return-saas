@@ -19,7 +19,18 @@ export async function POST(req: NextRequest) {
 
   const authed = await getAuthedGmail(userId);
   if (!authed) {
-    return NextResponse.json({ error: "Gmail not connected" }, { status: 400 });
+    return NextResponse.json({
+      error: "Gmail not connected",
+      totalCount: 0,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      offset,
+      batchSize,
+      hasMore: false,
+      nextOffset: null,
+      progress: 0,
+    });
   }
   const { gmail } = authed;
 
@@ -27,6 +38,21 @@ export async function POST(req: NextRequest) {
   const totalCount = await prisma.emailTransaction.count({
     where: { userId, provider: "GMAIL" },
   });
+
+  if (totalCount === 0) {
+    return NextResponse.json({
+      error: "No Gmail transactions to reprocess",
+      totalCount,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      offset,
+      batchSize,
+      hasMore: false,
+      nextOffset: null,
+      progress: 0,
+    });
+  }
 
   const transactions = await prisma.emailTransaction.findMany({
     where: { userId, provider: "GMAIL" },

@@ -152,11 +152,12 @@ export default function InboxReview() {
           body: JSON.stringify({ offset, batchSize }),
         });
 
-        if (!res.ok) {
-          throw new Error(`Failed to reprocess: ${res.statusText}`);
+        const data = await res.json();
+
+        if (!res.ok || data?.error) {
+          throw new Error(data?.error || `Failed to reprocess: ${res.statusText}`);
         }
 
-        const data = await res.json();
         totalProcessed += data.processed;
         totalSucceeded += data.succeeded;
         totalFailed += data.failed;
