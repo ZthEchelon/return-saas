@@ -10,6 +10,7 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import NotificationsBadgeServer from "./ui/NotificationsBadgeServer";
 
@@ -93,6 +94,7 @@ export default function RootLayout({
           </nav>
         </header>
         <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
+        <Analytics />
       </body>
     </html>
     </ClerkProvider>
