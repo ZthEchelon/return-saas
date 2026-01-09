@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthedGmail } from "@/lib/gmail";
 import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/parser";
+import type { Purchase } from "@/lib/receipts/parser";
 
 /**
  * Reprocess all Gmail receipts with pagination and progress tracking
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       const msg = await gmail.users.messages.get({
         userId: "me",
         id: tx.messageId,
-        format: "raw" as any,
+        format: "raw",
       });
 
       const raw = msg.data.raw;
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
       }
 
       let parserError: string | null = null;
-      let purchase;
+      let purchase: Purchase;
 
       try {
         purchase = await parsePurchaseFromRawGmailMessage({ messageId: tx.messageId, raw });

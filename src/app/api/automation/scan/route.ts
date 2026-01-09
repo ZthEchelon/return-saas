@@ -4,6 +4,7 @@ import { getAuthedGmail } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/parser";
 import { saveReceiptAttachment } from "@/lib/receipts/storage";
+import type { Prisma } from "@prisma/client";
 
 function guessSuggestionType(merchant: string, subject?: string | null) {
   const s = (subject ?? "").toLowerCase();
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
 
     // If no transaction or reprocess requested, re-fetch + parse + upsert
     if (!tx || reprocess) {
-      const msg = await gmail.users.messages.get({ userId: "me", id, format: "raw" as any });
+      const msg = await gmail.users.messages.get({ userId: "me", id, format: "raw" });
       const raw = msg.data.raw;
       if (!raw) continue;
 
@@ -209,7 +210,7 @@ export async function POST(req: Request) {
           confidence: "MEDIUM",
           reasons: [`Built from transaction (${tx.rawSource})`],
           messageIds: [id],
-          draft: draft as any,
+          draft: draft as Prisma.InputJsonValue,
         },
       });
 

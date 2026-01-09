@@ -13,10 +13,12 @@ type Pref = {
   primaryEmail?: string | null;
 };
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+type PrefResponse = { preference: Pref };
+
+const fetcher = (url: string): Promise<PrefResponse> => fetch(url).then((r) => r.json());
 
 export default function NotificationSettings() {
-  const { data, isLoading, error, mutate } = useSWR("/api/settings/notifications", fetcher);
+  const { data, isLoading, error, mutate } = useSWR<PrefResponse>("/api/settings/notifications", fetcher);
   const pref: Pref | undefined = data?.preference;
 
   const [saving, setSaving] = useState(false);
@@ -38,9 +40,8 @@ export default function NotificationSettings() {
 
   function update<K extends keyof Pref>(key: K, value: Pref[K]) {
     mutate(
-      (prev: any) => ({
-        ...prev,
-        preference: { ...(prev?.preference ?? {}), [key]: value },
+      (prev?: PrefResponse) => ({
+        preference: { ...(prev?.preference ?? pref!), [key]: value },
       }),
       { revalidate: false }
     );
