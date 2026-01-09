@@ -24,7 +24,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
-        <body className={`${inter.variable} ${grotesk.variable} ${jetbrains.variable} antialiased bg-slate-950 text-slate-50`}>
+        <body className={`${inter.variable} ${grotesk.variable} ${jetbrains.variable} antialiased theme-dark bg-slate-950 text-slate-50`}>
           <div className="relative min-h-screen bg-noise overflow-hidden">
             <div className="pointer-events-none absolute inset-0 mix-blend-screen">
               <div className="absolute -left-10 top-0 h-80 w-80 rounded-full bg-cyan-500/20 blur-[120px]" />

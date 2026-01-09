@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { UserButton } from "@clerk/nextjs";
 import NotificationsBadgeServer from "../ui/NotificationsBadgeServer";
 import { SidebarNav } from "./ui/SidebarNav";
+import ThemeToggle from "./ui/ThemeToggle";
 
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: "⚡", hint: "Today" },
@@ -90,6 +91,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
                 />
               </div>
+              <ThemeToggle />
               <button className="hidden items-center gap-2 rounded-2xl border border-cyan-200/50 bg-gradient-to-r from-cyan-400/80 via-emerald-400/80 to-fuchsia-400/70 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:-translate-y-0.5 hover:shadow-cyan-500/50 sm:flex">
                 <span className="text-base">＋</span>
                 Add
