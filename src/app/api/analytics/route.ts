@@ -51,6 +51,7 @@ export async function GET() {
     // Get all subscriptions for this user
     const subscriptions = await prisma.subscription.findMany({
       where: { userId },
+      select: { renewalDate: true, amountCents: true },
     });
 
     // Get all returns for this user
