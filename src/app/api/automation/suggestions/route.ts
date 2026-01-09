@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { scheduleBillDueSoon, scheduleReturnDeadlineSoon, scheduleSubscriptionRenewalSoon } from "@/lib/notifications/domainScheduler";
-import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -195,7 +194,7 @@ export async function POST(req: Request) {
       merchant,
       amountCents,
       currency,
-      draft: mergedDraft as Prisma.InputJsonValue,
+      draft: mergedDraft as any,
     },
   });
 
