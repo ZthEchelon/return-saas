@@ -3,7 +3,14 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { parseISODateParam } from "@/lib/dates";
 
-type EventType = "RENEWAL" | "RETURN_DEADLINE" | "REFUND_CHECK" | "BILL_DUE";
+type EventType =
+  | "RENEWAL"
+  | "RETURN_DEADLINE"
+  | "REFUND_CHECK"
+  | "REFUND_EXPECTED"
+  | "REFUNDED"
+  | "CANCELLED_SUBSCRIPTION"
+  | "BILL_DUE";
 
 type CalendarEvent = {
   id: string;
@@ -15,7 +22,11 @@ type CalendarEvent = {
 
   // NEW
   billStatus?: "DUE" | "PAID";
+  autopay?: boolean;
   monthKey?: string;
+  purchaseDate?: string;
+  returnBy?: string;
+  trackingNumber?: string | null;
 
   source: { kind: "subscription" | "return" | "bill"; sourceId: string };
 };
@@ -68,7 +79,7 @@ export async function GET(req: Request) {
   const endMonthKey = end.toISOString().slice(0, 7);
 
   // Query raw records inside the range (+ small buffer for derived events)
-  const [subs, returns, bills, payments] = await Promise.all([
+  const [activeSubs, cancelledSubs, returnItems, bills, payments] = await Promise.all([
     prisma.subscription.findMany({
       where: {
         userId,
@@ -84,6 +95,21 @@ export async function GET(req: Request) {
       },
       orderBy: { renewalDate: "asc" },
     }),
+    prisma.subscription.findMany({
+      where: {
+        userId,
+        status: "CANCELLED",
+        updatedAt: { gte: start, lt: end },
+      },
+      select: {
+        id: true,
+        name: true,
+        amountCents: true,
+        currency: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
     prisma.returnItem.findMany({
       where: {
         userId,
@@ -93,23 +119,26 @@ export async function GET(req: Request) {
           { dropoffDate: { gte: addDaysUTC(start, -20), lt: end } },
         ],
       },
-      select: {
-        id: true,
-        store: true,
-        itemNote: true,
-        amountCents: true,
-        currency: true,
-        purchaseDate: true,
-        returnBy: true,
-        status: true,
-        dropoffDate: true,
-        refundedDate: true,
-      },
+    select: {
+      id: true,
+      store: true,
+      itemNote: true,
+      amountCents: true,
+      currency: true,
+      purchaseDate: true,
+      returnBy: true,
+      status: true,
+      dropoffDate: true,
+      refundExpectedBy: true,
+      refundedDate: true,
+      refundAmountCents: true,
+      trackingNumber: true,
+    },
       orderBy: { returnBy: "asc" },
     }),
     prisma.bill.findMany({
       where: { userId, status: "ACTIVE" },
-      select: { id: true, name: true, amountCents: true, currency: true, dueDayOfMonth: true },
+      select: { id: true, name: true, amountCents: true, currency: true, dueDayOfMonth: true, autopay: true },
       orderBy: { name: "asc" },
     }),
     prisma.billPayment.findMany({
@@ -124,7 +153,7 @@ export async function GET(req: Request) {
   const events: CalendarEvent[] = [];
 
   // Subscription renewals
-  for (const s of subs) {
+  for (const s of activeSubs) {
     events.push({
       id: `sub_${s.id}_${toISODateOnlyUTC(s.renewalDate)}`,
       type: "RENEWAL",
@@ -136,21 +165,37 @@ export async function GET(req: Request) {
     });
   }
 
-  // Return deadlines + refund checks
-  for (const r of returns) {
+  // Cancelled subscriptions (logged by updatedAt)
+  for (const c of cancelledSubs) {
+    events.push({
+      id: `subcancel_${c.id}_${toISODateOnlyUTC(c.updatedAt)}`,
+      type: "CANCELLED_SUBSCRIPTION",
+      date: toISODateOnlyUTC(c.updatedAt),
+      title: `${c.name} cancelled`,
+      amountCents: c.amountCents ?? undefined,
+      currency: c.currency,
+      source: { kind: "subscription", sourceId: c.id },
+    });
+  }
+
+  // Return deadlines + refund checks + refunded
+  for (const r of returnItems) {
     // Return deadline event (if within range)
     const deadlineDate = toISODateOnlyUTC(r.returnBy);
-    if (r.returnBy >= start && r.returnBy < end) {
+    if (r.returnBy >= start && r.returnBy < end && r.status !== "REFUNDED") {
       events.push({
         id: `ret_${r.id}_${deadlineDate}`,
         type: "RETURN_DEADLINE",
-        date: deadlineDate,
-        title: `${r.store}${r.itemNote ? ` — ${r.itemNote}` : ""}`,
-        amountCents: r.amountCents ?? undefined,
-        currency: r.currency,
-        source: { kind: "return", sourceId: r.id },
-      });
-    }
+      date: deadlineDate,
+      title: `${r.store}${r.itemNote ? ` — ${r.itemNote}` : ""}`,
+      amountCents: r.amountCents ?? undefined,
+      currency: r.currency,
+      source: { kind: "return", sourceId: r.id },
+      purchaseDate: toISODateOnlyUTC(r.purchaseDate),
+      returnBy: deadlineDate,
+      trackingNumber: r.trackingNumber ?? null,
+    });
+  }
 
     // Refund check events (only if dropped off and not refunded)
     if (r.dropoffDate && !r.refundedDate && r.status !== "REFUNDED") {
@@ -165,14 +210,52 @@ export async function GET(req: Request) {
           events.push({
             id: `ref_${r.id}_${label}_${toISODateOnlyUTC(checkDate)}`,
             type: "REFUND_CHECK",
-            date: toISODateOnlyUTC(checkDate),
-            title: `${label}: ${r.store}`,
-            amountCents: r.amountCents ?? undefined,
-            currency: r.currency,
-            source: { kind: "return", sourceId: r.id },
-          });
-        }
-      }
+        date: toISODateOnlyUTC(checkDate),
+        title: `${label}: ${r.store}`,
+        amountCents: r.amountCents ?? undefined,
+        currency: r.currency,
+        source: { kind: "return", sourceId: r.id },
+        purchaseDate: toISODateOnlyUTC(r.purchaseDate),
+        returnBy: toISODateOnlyUTC(r.returnBy),
+        trackingNumber: r.trackingNumber ?? null,
+      });
+    }
+  }
+    }
+
+    // Refund expected: when returned/dropped and awaiting refund
+    if (r.dropoffDate && !r.refundedDate && r.status === "DROPPED_OFF") {
+      const expected = addDaysUTC(r.dropoffDate, 14);
+      if (expected >= start && expected < end) {
+        events.push({
+          id: `refexp_${r.id}_${toISODateOnlyUTC(expected)}`,
+          type: "REFUND_EXPECTED",
+        date: toISODateOnlyUTC(expected),
+        title: `${r.store} — Refund expected`,
+        amountCents: r.amountCents ?? undefined,
+        currency: r.currency,
+        source: { kind: "return", sourceId: r.id },
+        purchaseDate: toISODateOnlyUTC(r.purchaseDate),
+        returnBy: toISODateOnlyUTC(r.returnBy),
+        trackingNumber: r.trackingNumber ?? null,
+      });
+    }
+  }
+
+    // Refunded event (if refundedDate within range)
+    if (r.refundedDate && r.refundedDate >= start && r.refundedDate < end) {
+      events.push({
+        id: `refunded_${r.id}_${toISODateOnlyUTC(r.refundedDate)}`,
+        type: "REFUNDED",
+        date: toISODateOnlyUTC(r.refundedDate),
+        title: `${r.store} — Refunded`,
+        amountCents: r.refundAmountCents ?? r.amountCents ?? undefined,
+        currency: r.currency,
+        source: { kind: "return", sourceId: r.id },
+        purchaseDate: toISODateOnlyUTC(r.purchaseDate),
+        returnBy: toISODateOnlyUTC(r.returnBy),
+        trackingNumber: r.trackingNumber ?? null,
+      });
     }
   }
 
@@ -207,6 +290,7 @@ export async function GET(req: Request) {
         amountCents,
         currency,
         billStatus: paid ? "PAID" : "DUE",
+        autopay: b.autopay,
         monthKey: mk,
         source: { kind: "bill", sourceId: b.id },
       });

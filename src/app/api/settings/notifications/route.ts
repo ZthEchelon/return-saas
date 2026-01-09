@@ -1,0 +1,66 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+function clamp(val: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, val));
+}
+
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+
+  // Ensure a row exists; populate primaryEmail from Clerk if missing.
+  const pref = await prisma.notificationPreference.upsert({
+    where: { userId },
+    create: {
+      userId,
+    },
+    update: {},
+  });
+
+  return NextResponse.json({ preference: pref });
+}
+
+export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+
+  const digest = Boolean(body.emailDigestEnabled ?? false);
+  const digestHourLocal = clamp(Number(body.digestHourLocal ?? 9), 0, 23);
+  const timezone = typeof body.timezone === "string" && body.timezone.length > 0 ? body.timezone : "America/Toronto";
+  const subLeadDays = clamp(Number(body.subLeadDays ?? 3), 0, 31);
+  const returnLeadDays = clamp(Number(body.returnLeadDays ?? 2), 0, 31);
+  const billLeadDays = clamp(Number(body.billLeadDays ?? 2), 0, 31);
+  const primaryEmail = typeof body.primaryEmail === "string" && body.primaryEmail.length > 0 ? body.primaryEmail : null;
+
+  const updated = await prisma.notificationPreference.upsert({
+    where: { userId },
+    create: {
+      userId,
+      emailDigestEnabled: digest,
+      digestHourLocal,
+      timezone,
+      subLeadDays,
+      returnLeadDays,
+      billLeadDays,
+      primaryEmail,
+    },
+    update: {
+      emailDigestEnabled: digest,
+      digestHourLocal,
+      timezone,
+      subLeadDays,
+      returnLeadDays,
+      billLeadDays,
+      primaryEmail,
+    },
+  });
+
+  return NextResponse.json({ preference: updated });
+}

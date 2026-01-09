@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  turbopack: {},
   // Ensure Tailwind resolves correctly in webpack builds.
   webpack: config => {
     config.resolve.alias = {

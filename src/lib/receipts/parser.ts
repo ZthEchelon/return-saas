@@ -5,11 +5,6 @@ import { simpleParser } from "mailparser";
 import * as cheerio from "cheerio";
 import { z } from "zod";
 
-// pdf-parse sometimes complains about types in TS; if it does, add: pnpm add -D @types/pdf-parse
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import pdfParse from "pdf-parse";
-
 export type PurchaseItem = { name?: string; quantity?: number; price?: number };
 export type Purchase = {
   messageId: string;
@@ -175,9 +170,18 @@ async function extractFromPdfAttachments(attachments: { contentType?: string; fi
     const isPdf = (a.contentType || "").includes("pdf") || (a.filename || "").toLowerCase().endsWith(".pdf");
     if (!isPdf) continue;
 
-    const parsed = await pdfParse(a.content);
-    const hit = extractTotalFromText(parsed.text);
-    if (hit.totalCents) return { rawSource: "pdf" as const, ...hit };
+    try {
+      const mod = await import("pdf-parse").catch(() => null);
+      const pdfParse = (mod as Record<string, unknown>)?.default ?? (mod as Record<string, unknown>)?.PDFParse ?? mod;
+      if (typeof pdfParse !== "function") continue;
+
+      const parsed = await pdfParse(a.content);
+      const hit = extractTotalFromText((parsed as { text?: string })?.text ?? "");
+      if (hit.totalCents) return { rawSource: "pdf" as const, ...hit };
+    } catch (err) {
+      console.error("pdf-parse failed, skipping attachment", err);
+      continue;
+    }
   }
   return null;
 }

@@ -1,105 +1,39 @@
-// Get automation suggestions + confirm/ignore actions
-// GET: Fetch all NEW suggestions for user from database
-// POST: CONFIRM creates actual return/subscription/bill records, IGNORE just marks status
-
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import type { SuggestionType } from "@/lib/automation";
+import type { Prisma } from "@prisma/client";
 
-type Draft = {
-  purchaseDate?: string;
-  returnBy?: string;
-  returnWindowDays?: number;
-  renewalDate?: string;
-  cadence?: "MONTHLY" | "YEARLY";
-  dueDayOfMonth?: number;
-  autopay?: boolean;
-  itemNote?: string | null;
-};
+export const runtime = "nodejs";
 
-// Helper to convert ISO date string to Date
-function isoToDate(s: string) {
-  return new Date(s + "T00:00:00.000Z");
+function isoDateOnlyToUTC(dateOnly: string) {
+  // expects YYYY-MM-DD
+  return new Date(dateOnly + "T00:00:00.000Z");
 }
 
-// Helper to create actual records (returns, subscriptions, bills) from automation suggestion
-async function createFromSuggestion(userId: string, suggestion: {
-  type: SuggestionType;
-  merchant: string;
-  amountCents?: number | null;
-  currency?: string;
-  draft?: Draft;
-}) {
-  const draft = suggestion.draft ?? {};
-
-  if (suggestion.type === "SUBSCRIPTION") {
-    const renewalDate = typeof draft.renewalDate === "string" ? draft.renewalDate : new Date().toISOString().slice(0, 10);
-    const cadence = draft.cadence === "YEARLY" ? "YEARLY" : "MONTHLY";
-    await prisma.subscription.create({
-      data: {
-        userId,
-        name: suggestion.merchant,
-        amountCents: suggestion.amountCents ?? 0,
-        currency: suggestion.currency ?? "CAD",
-        renewalDate: isoToDate(renewalDate),
-        cadence,
-        status: "ACTIVE",
-      },
-    });
-    return;
-  }
-
-  if (suggestion.type === "RETURN") {
-    const purchaseDate = typeof draft.purchaseDate === "string" ? draft.purchaseDate : new Date().toISOString().slice(0, 10);
-    const returnBy = typeof draft.returnBy === "string" ? draft.returnBy : purchaseDate;
-    const windowDays = typeof draft.returnWindowDays === "number" ? draft.returnWindowDays : 30;
-    await prisma.returnItem.create({
-      data: {
-        userId,
-        store: suggestion.merchant,
-        itemNote: draft.itemNote ?? null,
-        amountCents: suggestion.amountCents ?? null,
-        currency: suggestion.currency ?? "CAD",
-        purchaseDate: isoToDate(purchaseDate),
-        returnWindowDays: windowDays,
-        returnBy: isoToDate(returnBy),
-        status: "NOT_STARTED",
-      },
-    });
-    return;
-  }
-
-  if (suggestion.type === "BILL") {
-    await prisma.bill.create({
-      data: {
-        userId,
-        name: suggestion.merchant,
-        amountCents: suggestion.amountCents && suggestion.amountCents > 0 ? suggestion.amountCents : null,
-        currency: suggestion.currency ?? "CAD",
-        dueDayOfMonth: typeof draft.dueDayOfMonth === "number" ? draft.dueDayOfMonth : 1,
-        autopay: Boolean(draft.autopay ?? false),
-        status: "ACTIVE",
-      },
-    });
-    return;
-  }
+function addDaysUTC(d: Date, days: number) {
+  const x = new Date(d);
+  x.setUTCDate(x.getUTCDate() + days);
+  return x;
 }
 
-// GET: Fetch all NEW suggestions for the authenticated user
+function toCents(n: unknown) {
+  if (typeof n === "number" && Number.isFinite(n)) return Math.max(0, Math.floor(n));
+  return null;
+}
+
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-  const suggestions = await prisma.automationSuggestion.findMany({
+  const rows = await prisma.automationSuggestion.findMany({
     where: { userId, status: "NEW" },
     orderBy: { detectedDate: "desc" },
+    take: 200,
   });
 
-  return NextResponse.json({ suggestions });
+  return NextResponse.json({ suggestions: rows });
 }
 
-// POST: Handle CONFIRM (create actual record) or IGNORE (skip suggestion) actions
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
@@ -110,23 +44,17 @@ export async function POST(req: Request) {
   const { id, action, draft } = body as {
     id: string;
     action: "CONFIRM" | "IGNORE";
-    draft?: Draft;
+    draft?: Record<string, unknown>;
   };
 
-  if (!id || !action) {
-    return NextResponse.json({ error: "Missing id or action" }, { status: 400 });
-  }
+  if (!id || !action) return NextResponse.json({ error: "Missing id/action" }, { status: 400 });
 
-  // Find the suggestion
-  const suggestion = await prisma.automationSuggestion.findUnique({
-    where: { id },
-  });
+  const s = await prisma.automationSuggestion.findFirst({ where: { id, userId } });
+  if (!s) return new NextResponse("Not found", { status: 404 });
 
-  if (!suggestion || suggestion.userId !== userId) {
-    return new NextResponse("Not found", { status: 404 });
-  }
+  // Idempotency
+  if (s.status !== "NEW") return NextResponse.json({ ok: true, alreadyHandled: true });
 
-  // Handle IGNORE: just mark as IGNORED
   if (action === "IGNORE") {
     await prisma.automationSuggestion.update({
       where: { id },
@@ -135,35 +63,111 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // Handle CONFIRM: merge draft overrides and create the actual record
-  if (action === "CONFIRM") {
-    const baseDraft = (suggestion.draft ?? {}) as Draft;
-    const merged = { ...baseDraft, ...(draft ?? {}) };
+  // CONFIRM: merge any edits from UI into stored draft
+  const storedDraft = (s.draft as Record<string, unknown> | null) ?? {};
+  const mergedDraft = { ...storedDraft, ...(draft ?? {}) };
 
-    try {
-      await createFromSuggestion(userId, {
-        type: suggestion.type as SuggestionType,
-        merchant: suggestion.merchant,
-        amountCents: suggestion.amountCents,
-        currency: suggestion.currency,
-        draft: merged,
-      });
+  const type = s.type as "RETURN" | "SUBSCRIPTION" | "BILL";
+  const merchant = (mergedDraft.merchant ?? s.merchant) as string;
+  const currency = String(mergedDraft.currency ?? s.currency ?? "CAD").toUpperCase();
 
-      // Mark suggestion as CONFIRMED
-      await prisma.automationSuggestion.update({
-        where: { id },
-        data: { status: "CONFIRMED" },
-      });
+  const amountCents =
+    toCents(mergedDraft.amountCents) ??
+    (typeof s.amountCents === "number" ? s.amountCents : null);
 
-      return NextResponse.json({ ok: true });
-    } catch (error) {
-      console.error("Error creating record from suggestion:", error);
-      return NextResponse.json(
-        { error: "Failed to create record" },
-        { status: 500 }
-      );
+  // --- Create real records based on suggestion type ---
+  if (type === "RETURN") {
+    const purchaseDateStr = String(mergedDraft.purchaseDate ?? "").slice(0, 10);
+    const windowDays = Number.isFinite(Number(mergedDraft.returnWindowDays))
+      ? Math.max(1, Number(mergedDraft.returnWindowDays))
+      : 30;
+
+    if (!purchaseDateStr) {
+      return NextResponse.json({ error: "Return requires draft.purchaseDate (YYYY-MM-DD)" }, { status: 400 });
     }
+
+    const purchaseDate = isoDateOnlyToUTC(purchaseDateStr);
+
+    let returnBy: Date;
+    const returnByStr = String(mergedDraft.returnBy ?? "").slice(0, 10);
+    if (returnByStr) returnBy = isoDateOnlyToUTC(returnByStr);
+    else returnBy = addDaysUTC(purchaseDate, windowDays);
+
+    await prisma.returnItem.create({
+      data: {
+        userId,
+        store: merchant,
+        itemNote: typeof mergedDraft.itemNote === "string" ? mergedDraft.itemNote : null,
+        amountCents,
+        currency,
+        purchaseDate,
+        returnWindowDays: windowDays,
+        returnBy,
+        status: "NOT_STARTED",
+        dropoffDate: null,
+        refundedDate: null,
+        trackingNumber: typeof mergedDraft.trackingNumber === "string" && mergedDraft.trackingNumber.trim().length > 0
+          ? mergedDraft.trackingNumber.trim()
+          : null,
+        refundExpectedBy: null,
+        refundAmountCents: null,
+      },
+    });
   }
 
-  return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+  if (type === "SUBSCRIPTION") {
+    const renewalDateStr = String(mergedDraft.renewalDate ?? "").slice(0, 10);
+    if (!renewalDateStr) {
+      return NextResponse.json({ error: "Subscription requires draft.renewalDate (YYYY-MM-DD)" }, { status: 400 });
+    }
+
+    const renewalDate = isoDateOnlyToUTC(renewalDateStr);
+    const cadenceRaw = String(mergedDraft.cadence ?? "MONTHLY").toUpperCase();
+    const cadence: "MONTHLY" | "YEARLY" | "CUSTOM" =
+      cadenceRaw === "YEARLY" || cadenceRaw === "CUSTOM" ? (cadenceRaw as typeof cadence) : "MONTHLY";
+
+    await prisma.subscription.create({
+      data: {
+        userId,
+        name: merchant,
+        amountCents: amountCents ?? 0,
+        currency,
+        renewalDate,
+        cadence,
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  if (type === "BILL") {
+    const dueDayOfMonth = Number.isFinite(Number(mergedDraft.dueDayOfMonth))
+      ? Math.min(28, Math.max(1, Number(mergedDraft.dueDayOfMonth)))
+      : 1;
+
+    await prisma.bill.create({
+      data: {
+        userId,
+        name: merchant,
+        amountCents,
+        currency,
+        dueDayOfMonth,
+        autopay: Boolean(mergedDraft.autopay ?? false),
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  // Mark suggestion confirmed (store merged draft edits too)
+  await prisma.automationSuggestion.update({
+    where: { id },
+    data: {
+      status: "CONFIRMED",
+      merchant,
+      amountCents,
+      currency,
+      draft: mergedDraft as Prisma.InputJsonValue,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
 }

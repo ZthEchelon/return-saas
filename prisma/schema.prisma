@@ -47,10 +47,9 @@ model Subscription {
 
   @@index([userId, renewalDate])
 }
-
 model ReturnItem {
   id              String      @id @default(cuid())
-  userId          String      // Clerk userId
+  userId          String
   store           String
   itemNote        String?
   amountCents     Int?
@@ -59,13 +58,20 @@ model ReturnItem {
   returnWindowDays Int        @default(30)
   returnBy        DateTime
   status          ReturnStatus @default(NOT_STARTED)
-  dropoffDate     DateTime?
-  refundedDate    DateTime?
+
+  trackingNumber  String?
+  dropoffDate     DateTime?   // when returned/shipped
+  refundExpectedBy DateTime?  // NEW: when you expect refund by
+  refundedDate    DateTime?   // when refund actually received
+  refundAmountCents Int?      // OPTIONAL (nice to have)
+
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
   @@index([userId, returnBy])
+  @@index([userId, refundExpectedBy]) // optional but helpful
 }
+
 
 //schema for adding bill paid status
 enum BillStatus {
@@ -86,6 +92,7 @@ model Bill {
   status        BillStatus @default(ACTIVE)
 
   payments      BillPayment[]
+  occurrences   BillOccurrence[]
 
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -257,6 +264,8 @@ model EmailTransaction {
   items       Json?
   rawSource   String
 
+  receiptDocuments ReceiptDocument[]
+
   createdAt DateTime @default(now())
 
   @@unique([provider, messageId])
@@ -264,4 +273,122 @@ model EmailTransaction {
   @@index([userId, purchasedAt])
 }
 
+model ReceiptDocument {
+  id                  String   @id @default(cuid())
+  userId              String
+  emailTransactionId  String
+  emailTransaction    EmailTransaction @relation(fields: [emailTransactionId], references: [id], onDelete: Cascade)
 
+  filename            String
+  contentType         String
+  storagePath         String // URL or S3 path
+  sizeBytes           Int
+
+  createdAt           DateTime @default(now())
+
+  @@index([userId, emailTransactionId])
+}
+
+model SubscriptionPayment {
+  id              String   @id @default(cuid())
+  userId          String
+  subscriptionId  String
+
+  paidAt          DateTime
+  amountCents     Int
+  currency        String   @default("CAD")
+  notes           String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([userId, subscriptionId, paidAt])
+}
+
+
+enum BillOccurrenceStatus {
+  DUE
+  PAID
+}
+
+model BillOccurrence {
+  id        String               @id @default(cuid())
+  userId    String
+  billId    String
+  bill      Bill                 @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  dueDate   DateTime
+  status    BillOccurrenceStatus @default(DUE)
+  paidAt    DateTime?
+  amountCents Int?
+  currency  String @default("CAD")
+
+  createdAt DateTime @default(now())
+
+  @@unique([billId, dueDate])
+  @@index([userId, dueDate])
+  @@index([userId, status])
+}
+enum NotificationType {
+  SUBSCRIPTION_RENEWAL_SOON
+  RETURN_DEADLINE_SOON
+  BILL_DUE_SOON
+  REFUND_CHECK_DUE
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  userId       String
+
+  type         NotificationType
+  title        String
+  body         String?
+
+  // Date of the underlying event (renewal/return/bill/refund-check)
+  eventDate    DateTime?
+
+  // Date we intended to notify (usually "today" when cron runs)
+  scheduledFor DateTime
+
+  // Source reference
+  sourceKind   String
+  sourceId     String
+
+  // Deterministic key to dedupe notifications
+  eventKey     String
+
+  readAt       DateTime?
+  dismissedAt  DateTime?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, eventKey])
+  @@index([userId, scheduledFor])
+  @@index([userId, readAt])
+  @@index([userId, dismissedAt])
+}
+model NotificationPreference {
+  userId            String  @id
+  emailDigestEnabled Boolean @default(false)
+  timezone          String  @default("America/Toronto")
+  digestHourLocal   Int     @default(9)   // 0..23
+  windowDays        Int     @default(14)
+  subLeadDays       Int     @default(3)
+  returnLeadDays    Int     @default(2)
+  billLeadDays      Int     @default(2)
+  primaryEmail      String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model DigestSendLog {
+  id          String   @id @default(cuid())
+  userId      String
+  dateLocal   String   // "YYYY-MM-DD" in user’s timezone
+  sentAt      DateTime @default(now())
+
+  // Idempotency
+  @@unique([userId, dateLocal])
+  @@index([userId, sentAt])
+}

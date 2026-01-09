@@ -1,6 +1,13 @@
 //event type + fetch helper
 
-export type EventType = "RENEWAL" | "RETURN_DEADLINE" | "REFUND_CHECK" | "BILL_DUE";
+export type EventType =
+  | "RENEWAL"
+  | "RETURN_DEADLINE"
+  | "REFUND_CHECK"
+  | "REFUND_EXPECTED"
+  | "REFUNDED"
+  | "CANCELLED_SUBSCRIPTION"
+  | "BILL_DUE";
 
 export type CalendarEvent = {
   id: string;
@@ -10,7 +17,11 @@ export type CalendarEvent = {
   amountCents?: number;
   currency?: string;
   billStatus?: "DUE" | "PAID";
+  autopay?: boolean;
   monthKey?: string;
+  purchaseDate?: string;
+  returnBy?: string;
+  trackingNumber?: string | null;
   source: { kind: "subscription" | "return" | "bill"; sourceId: string };
 };
 

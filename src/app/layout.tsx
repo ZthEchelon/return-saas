@@ -11,6 +11,7 @@ import {
   UserButton,
 } from "@clerk/nextjs";
 import "./globals.css";
+import NotificationsBadgeServer from "./ui/NotificationsBadgeServer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,22 +40,55 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-md">
-          <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm font-medium">
-            <div className="flex items-center gap-4">
-              <div className="rounded-full bg-gradient-to-r from-emerald-200 to-cyan-200 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm">
-                ReturnSaaS
+          <nav className="mx-auto max-w-6xl px-5 py-3">
+            <div className="flex flex-wrap items-center gap-6">
+              {/* Logo & Home Links */}
+              <div className="flex items-center gap-4">
+                <div className="rounded-full bg-gradient-to-r from-emerald-200 to-cyan-200 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm">
+                  ReturnSaaS
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <Link className="nav-link" href="/">Home</Link>
+                  <Link className="nav-link" href="/dashboard">Dashboard</Link>
+                  <Link className="nav-link" href="/dashboard/calendar">Calendar</Link>
+                  <Link className="nav-link" href="/dashboard/analytics">Analytics</Link>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Link className="nav-link" href="/">Home</Link>
-                <Link className="nav-link" href="/dashboard">Dashboard</Link>
-                <Link className="nav-link" href="/dashboard/calendar">Calendar</Link>
+
+              {/* Automation */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-slate-900 px-3 py-1 text-white font-semibold">Automation</span>
+                <Link className="pill-link" href="/dashboard/automation">Overview</Link>
+                <Link className="pill-link" href="/dashboard/automation/review">Review</Link>
+                <Link className="pill-link" href="/dashboard/automation/rules">Rules</Link>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-full bg-slate-900 px-3 py-1 text-white">Automation</span>
-              <Link className="pill-link" href="/dashboard/automation">Overview</Link>
-              <Link className="pill-link" href="/dashboard/automation/review">Review</Link>
-              <Link className="pill-link" href="/dashboard/automation/rules">Rules</Link>
+
+              {/* Receipts */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-emerald-600 px-3 py-1 text-white font-semibold">Receipts</span>
+                <Link className="pill-link" href="/dashboard/receipts/browser">Browser</Link>
+                <Link className="pill-link" href="/dashboard/receipts/upload">Upload</Link>
+              </div>
+
+              {/* Bills */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-blue-600 px-3 py-1 text-white font-semibold">Bills</span>
+                <Link className="pill-link" href="/dashboard/bills">View</Link>
+              </div>
+
+              {/* Returns */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-cyan-600 px-3 py-1 text-white font-semibold">Returns</span>
+                <Link className="pill-link" href="/dashboard/returns">View</Link>
+              </div>
+
+              {/* Notifications & Settings */}
+              <div className="flex items-center gap-3 text-sm ml-auto">
+                <Link className="nav-link" href="/dashboard/notifications">Notifications</Link>
+                <Link className="nav-link" href="/dashboard/settings">Settings</Link>
+                <NotificationsBadgeServer />
+                <UserButton />
+              </div>
             </div>
           </nav>
         </header>

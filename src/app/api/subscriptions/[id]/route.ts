@@ -1,37 +1,57 @@
-//update subscription endpoint (cancel/edit)
-import { NextResponse } from "next/server";
+// update subscription endpoint (edit/cancel)
+import { NextResponse, NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: Request) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+
+  const { id } = await params;
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-  const { name, amountCents, currency = "CAD", renewalDate, cadence = "MONTHLY", cancelUrl, notes } = body;
+  const data: {
+    name?: string;
+    amountCents?: number;
+    currency?: string;
+    renewalDate?: Date;
+    cadence?: "MONTHLY" | "YEARLY" | "CUSTOM";
+    cancelUrl?: string | null;
+    notes?: string | null;
+    status?: "ACTIVE" | "CANCELLED";
+  } = {};
 
-  if (!name || typeof name !== "string") return NextResponse.json({ error: "name required" }, { status: 400 });
-  if (typeof amountCents !== "number") return NextResponse.json({ error: "amountCents required" }, { status: 400 });
-  if (!renewalDate || typeof renewalDate !== "string") return NextResponse.json({ error: "renewalDate required" }, { status: 400 });
+  if (typeof body.name === "string") data.name = body.name;
+  if (typeof body.amountCents === "number") data.amountCents = body.amountCents;
+  if (typeof body.currency === "string") data.currency = body.currency;
+  if (typeof body.cadence === "string") {
+    const c = body.cadence.toUpperCase();
+    if (c === "MONTHLY" || c === "YEARLY" || c === "CUSTOM") data.cadence = c;
+  }
+  if (typeof body.cancelUrl === "string" || body.cancelUrl === null) data.cancelUrl = body.cancelUrl;
+  if (typeof body.notes === "string" || body.notes === null) data.notes = body.notes;
+  if (typeof body.status === "string" && (body.status === "ACTIVE" || body.status === "CANCELLED")) data.status = body.status;
 
-  const rd = new Date(renewalDate);
-  if (Number.isNaN(rd.getTime())) return NextResponse.json({ error: "renewalDate invalid" }, { status: 400 });
+  if (typeof body.renewalDate === "string") {
+    const rd = new Date(body.renewalDate);
+    if (Number.isNaN(rd.getTime())) return NextResponse.json({ error: "renewalDate invalid" }, { status: 400 });
+    data.renewalDate = rd;
+  }
 
-  const created = await prisma.subscription.create({
-    data: {
-      userId,
-      name,
-      amountCents,
-      currency,
-      renewalDate: rd,
-      cadence,
-      status: "ACTIVE",
-      cancelUrl: cancelUrl ?? null,
-      notes: notes ?? null,
-    },
-  });
+  const updated = await prisma.subscription.updateMany({ where: { id, userId }, data });
+  if (updated.count === 0) return new NextResponse("Not found", { status: 404 });
 
-  return NextResponse.json({ subscription: created });
+  return NextResponse.json({ ok: true });
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { userId } = await auth();
+  if (!userId) return new NextResponse("Unauthorized", { status: 401 });
+
+  const { id } = await params;
+  const sub = await prisma.subscription.findFirst({ where: { id, userId } });
+  if (!sub) return new NextResponse("Not found", { status: 404 });
+  return NextResponse.json({ subscription: sub });
 }

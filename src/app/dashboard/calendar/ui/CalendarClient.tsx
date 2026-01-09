@@ -94,6 +94,64 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   const [payLoading, setPayLoading] = useState(false);
   const [showAddSub, setShowAddSub] = useState(false);
   const [showAddReturn, setShowAddReturn] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [billEdit, setBillEdit] = useState({ name: "", amount: "", dueDay: "", autopay: false });
+  const [subEdit, setSubEdit] = useState({ name: "", amount: "", renewalDate: "" });
+  const [returnEdit, setReturnEdit] = useState({ store: "", itemNote: "", amount: "", purchaseDate: "", returnBy: "", trackingNumber: "" });
+
+  useEffect(() => {
+    if (!selected) return;
+
+    if (selected.type === "BILL_DUE") {
+      if (selected.amountCents != null) {
+        setPayAmount((selected.amountCents / 100).toFixed(2));
+      } else {
+        setPayAmount("");
+      }
+      setPayNotes(selected.autopay ? "autopay" : "");
+    } else {
+      setPayAmount("");
+      setPayNotes("");
+    }
+  }, [selected?.id]);
+
+  useEffect(() => {
+    if (!selected) {
+      setBillEdit({ name: "", amount: "", dueDay: "", autopay: false });
+      setSubEdit({ name: "", amount: "", renewalDate: "" });
+      setReturnEdit({ store: "", itemNote: "", amount: "", purchaseDate: "", returnBy: "", trackingNumber: "" });
+      return;
+    }
+
+    if (selected.type === "BILL_DUE") {
+      setBillEdit({
+        name: selected.title,
+        amount: selected.amountCents != null ? (selected.amountCents / 100).toFixed(2) : "",
+        dueDay: selected.date.slice(-2),
+        autopay: Boolean(selected.autopay),
+      });
+    }
+
+    if (selected.type === "RENEWAL" || selected.type === "CANCELLED_SUBSCRIPTION") {
+      setSubEdit({
+        name: selected.title.replace(/ cancelled$/i, ""),
+        amount: selected.amountCents != null ? (selected.amountCents / 100).toFixed(2) : "",
+        renewalDate: selected.date,
+      });
+    }
+
+    if (selected.source.kind === "return") {
+      const [store, note] = selected.title.split(" — ");
+      setReturnEdit({
+        store: store ?? "",
+        itemNote: note ?? "",
+        amount: selected.amountCents != null ? (selected.amountCents / 100).toFixed(2) : "",
+        purchaseDate: selected.purchaseDate ?? "",
+        returnBy: selected.returnBy ?? selected.date,
+        trackingNumber: selected.trackingNumber ?? "",
+      });
+    }
+  }, [selected]);
 
   useEffect(() => {
     // initial load for the current month
@@ -128,6 +186,21 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
       .slice(0, 12);
   }, [events]);
 
+  const monthStartISO = useMemo(() => toISODateOnlyUTC(startOfMonthUTC(month)), [month]);
+  const monthEndISO = useMemo(() => toISODateOnlyUTC(addMonthsUTC(month, 1)), [month]);
+
+  const completed = useMemo(() => {
+    return events
+      .filter(e => e.date >= monthStartISO && e.date < monthEndISO)
+      .filter(
+        e =>
+          (e.type === "BILL_DUE" && e.billStatus === "PAID") ||
+          e.type === "REFUNDED" ||
+          e.type === "CANCELLED_SUBSCRIPTION"
+      )
+      .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
+  }, [events, monthStartISO, monthEndISO]);
+
   async function goTo(deltaMonths: number) {
     const next = addMonthsUTC(month, deltaMonths);
     setMonth(next);
@@ -153,6 +226,9 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
     RENEWAL: "bg-emerald-100 text-emerald-700",
     RETURN_DEADLINE: "bg-cyan-100 text-cyan-700",
     REFUND_CHECK: "bg-amber-100 text-amber-800",
+    REFUND_EXPECTED: "bg-amber-100 text-amber-800",
+    REFUNDED: "bg-emerald-100 text-emerald-700",
+    CANCELLED_SUBSCRIPTION: "bg-slate-200 text-slate-800",
     BILL_DUE: "bg-indigo-100 text-indigo-800",
   };
 
@@ -160,8 +236,27 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
     RENEWAL: "bg-emerald-50",
     RETURN_DEADLINE: "bg-cyan-50",
     REFUND_CHECK: "bg-amber-50",
+    REFUND_EXPECTED: "bg-amber-50",
+    REFUNDED: "bg-emerald-50",
+    CANCELLED_SUBSCRIPTION: "bg-slate-50",
     BILL_DUE: "bg-indigo-50",
   };
+
+  function pillClass(ev: CalendarEvent) {
+    if (ev.type === "BILL_DUE") {
+      return ev.billStatus === "PAID"
+        ? "bg-emerald-100 text-emerald-700"
+        : "bg-indigo-100 text-indigo-800";
+    }
+    return typePills[ev.type];
+  }
+
+  function cardClass(ev: CalendarEvent) {
+    if (ev.type === "BILL_DUE") {
+      return ev.billStatus === "PAID" ? "bg-emerald-50" : "bg-indigo-50";
+    }
+    return cardBg[ev.type];
+  }
 
   async function seedDemo() {
     setLoading(true);
@@ -237,15 +332,15 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   async function markDroppedOff(ev: CalendarEvent) {
     if (ev.type !== "RETURN_DEADLINE") return;
 
+    const trackingInput = typeof window !== "undefined" ? window.prompt("Tracking number (optional)") : null;
+    const trackingNumber = trackingInput && trackingInput.trim().length > 0 ? trackingInput.trim() : null;
+
     setPayLoading(true);
     try {
-      await fetch(`/api/returns/${ev.source.sourceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "DROPPED_OFF",
-          dropoffDate: new Date().toISOString(),
-        }),
+      await fetch(`/api/returns/${ev.source.sourceId}/mark-returned`, {
+        method: "POST",
+        headers: trackingNumber ? { "Content-Type": "application/json" } : undefined,
+        body: trackingNumber ? JSON.stringify({ trackingNumber }) : undefined,
       });
 
       const next = await refreshMonth();
@@ -261,12 +356,11 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
     setPayLoading(true);
     try {
-      await fetch(`/api/returns/${ev.source.sourceId}`, {
-        method: "PATCH",
+      await fetch(`/api/returns/${ev.source.sourceId}/mark-refunded`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "REFUNDED",
-          refundedDate: new Date().toISOString(),
+          refundAmountCents: ev.amountCents ?? undefined,
         }),
       });
 
@@ -274,6 +368,75 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
       setSelected(next.find(x => x.source.sourceId === ev.source.sourceId) ?? null);
     } finally {
       setPayLoading(false);
+    }
+  }
+
+  async function saveBillEdit() {
+    if (!selected || selected.type !== "BILL_DUE") return;
+    setEditLoading(true);
+    try {
+      const amountCents = billEdit.amount.trim().length ? Math.round(Number(billEdit.amount) * 100) : undefined;
+      const dueDay = Number(billEdit.dueDay);
+      await fetch(`/api/bills/${selected.source.sourceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: billEdit.name,
+          amountCents: Number.isFinite(amountCents) ? amountCents : undefined,
+          dueDayOfMonth: Number.isFinite(dueDay) ? dueDay : undefined,
+          autopay: billEdit.autopay,
+        }),
+      });
+      const next = await refreshMonth();
+      setSelected(next.find(x => x.id === selected.id) ?? null);
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  async function saveSubEdit() {
+    if (!selected || (selected.type !== "RENEWAL" && selected.type !== "CANCELLED_SUBSCRIPTION")) return;
+    setEditLoading(true);
+    try {
+      const amountCents = subEdit.amount.trim().length ? Math.round(Number(subEdit.amount) * 100) : undefined;
+      await fetch(`/api/subscriptions/${selected.source.sourceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: subEdit.name,
+          amountCents: Number.isFinite(amountCents) ? amountCents : undefined,
+          renewalDate: subEdit.renewalDate ? `${subEdit.renewalDate}T00:00:00.000Z` : undefined,
+          status: "ACTIVE",
+        }),
+      });
+      const next = await refreshMonth();
+      setSelected(next.find(x => x.source.sourceId === selected.source.sourceId && x.type === "RENEWAL") ?? null);
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  async function saveReturnEdit() {
+    if (!selected || selected.source.kind !== "return") return;
+    setEditLoading(true);
+    try {
+      const amountCents = returnEdit.amount.trim().length ? Math.round(Number(returnEdit.amount) * 100) : undefined;
+      await fetch(`/api/returns/${selected.source.sourceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          store: returnEdit.store,
+          itemNote: returnEdit.itemNote || null,
+          amountCents: Number.isFinite(amountCents) ? amountCents : null,
+          purchaseDate: returnEdit.purchaseDate ? `${returnEdit.purchaseDate}T00:00:00.000Z` : undefined,
+          returnBy: returnEdit.returnBy ? `${returnEdit.returnBy}T00:00:00.000Z` : undefined,
+          trackingNumber: returnEdit.trackingNumber || null,
+        }),
+      });
+      const next = await refreshMonth();
+      setSelected(next.find(x => x.source.sourceId === selected.source.sourceId && x.type === selected.type) ?? null);
+    } finally {
+      setEditLoading(false);
     }
   }
 
@@ -307,7 +470,9 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]">
           <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">Renewal</span>
           <span className="rounded-full bg-cyan-100 px-3 py-1 font-semibold text-cyan-700">Return deadline</span>
-          <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">Refund check</span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">Refund check / expected</span>
+          <span className="rounded-full bg-emerald-200 px-3 py-1 font-semibold text-emerald-800">Refunded / paid</span>
+          <span className="rounded-full bg-slate-200 px-3 py-1 font-semibold text-slate-800">Cancelled</span>
           <span className="rounded-full bg-indigo-100 px-3 py-1 font-semibold text-indigo-800">Bill due</span>
         </div>
 
@@ -335,37 +500,55 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
             const dayEvents = eventsByDate.get(key) ?? [];
             const dayNum = date.getUTCDate();
             const isToday = key === todayISO;
+            
+            // Count completed tasks for this day
+            const completedOnDay = dayEvents.filter(
+              e =>
+                (e.type === "BILL_DUE" && e.billStatus === "PAID") ||
+                e.type === "REFUNDED" ||
+                e.type === "CANCELLED_SUBSCRIPTION"
+            ).length;
 
             return (
               <div
                 key={key}
-                className={`relative min-h-[120px] rounded-xl border p-2 transition ${
+                className={`relative min-h-30 rounded-xl border p-2 transition ${
                   inMonth ? "bg-white hover:border-slate-300" : "bg-slate-50 text-slate-400"
                 } ${isToday ? "ring-2 ring-slate-900 ring-offset-2 ring-offset-white" : ""}`}
               >
                 <div className="flex items-start justify-between">
                   <div className={`text-xs font-semibold ${isToday ? "text-slate-900" : "text-slate-600"}`}>{dayNum}</div>
-                  {dayEvents.length > 2 ? (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">+{dayEvents.length - 2}</span>
-                  ) : null}
+                  <div className="flex items-center gap-1">
+                    {completedOnDay > 0 ? (
+                      <span className="text-sm" title={`${completedOnDay} task${completedOnDay > 1 ? "s" : ""} completed`}>⭐</span>
+                    ) : null}
+                    {dayEvents.length > 2 ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">+{dayEvents.length - 2}</span>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-2 space-y-2">
                   {dayEvents.slice(0, 2).map(ev => (
                     <button
                       key={ev.id}
-                      className={`w-full rounded-lg border border-transparent px-2 py-2 text-left text-xs shadow-sm transition hover:border-slate-200 ${cardBg[ev.type]}`}
+                      className={`w-full rounded-lg border border-transparent px-2 py-2 text-left text-xs shadow-sm transition hover:border-slate-200 ${cardClass(ev)}`}
                       onClick={() => setSelected(ev)}
                       title={ev.title}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate font-semibold text-slate-900">{ev.title}</span>
-                        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${typePills[ev.type]}`}>
+                        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
                           {ev.type.replaceAll("_", " ").toLowerCase()}
                         </span>
                       </div>
-                      {ev.amountCents != null ? (
-                        <div className="mt-1 text-[11px] text-slate-600">{formatMoney(ev.amountCents, ev.currency ?? "CAD")}</div>
+                      {ev.amountCents != null || (ev.type === "BILL_DUE" && ev.autopay) ? (
+                        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-600">
+                          <span>{ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}</span>
+                          {ev.type === "BILL_DUE" && ev.autopay ? (
+                            <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">autopay</span>
+                          ) : null}
+                        </div>
                       ) : null}
                     </button>
                   ))}
@@ -381,37 +564,83 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
         </div>
       </div>
 
-      {/* Upcoming */}
-      <div className="rounded-2xl border bg-white/80 p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900">Upcoming</div>
-          <div className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
+      <div className="space-y-4">
+        {/* Upcoming */}
+        <div className="rounded-2xl border bg-white/80 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-slate-900">Upcoming</div>
+            <div className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
+          </div>
+          <div className="mt-3 space-y-3">
+            {upcoming.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+                Nothing scheduled. Add a bill, subscription, or return to see it here.
+              </div>
+            ) : (
+              upcoming.map(ev => (
+                <button
+                  key={ev.id}
+                  className={`w-full rounded-xl border px-3 py-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${cardClass(ev)}`}
+                  onClick={() => setSelected(ev)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="truncate text-sm font-semibold text-slate-900">{ev.title}</div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
+                      {ev.type.replaceAll("_", " ").toLowerCase()}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-xs text-slate-600">
+                    <span>
+                      {ev.date} · {ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}
+                    </span>
+                    {ev.type === "BILL_DUE" && ev.autopay ? (
+                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                        autopay
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </div>
-        <div className="mt-3 space-y-3">
-          {upcoming.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
-              Nothing scheduled. Add a bill, subscription, or return to see it here.
+
+        {/* Completed */}
+        {completed.length > 0 ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-emerald-900">⭐ Completed this month</div>
+              <div className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white">{completed.length} items</div>
             </div>
-          ) : (
-            upcoming.map(ev => (
-              <button
-                key={ev.id}
-                className={`w-full rounded-xl border px-3 py-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${cardBg[ev.type]}`}
-                onClick={() => setSelected(ev)}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="truncate text-sm font-semibold text-slate-900">{ev.title}</div>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${typePills[ev.type]}`}>
-                    {ev.type.replaceAll("_", " ").toLowerCase()}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-slate-600">
-                  {ev.date} · {ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}
-                </div>
-              </button>
-            ))
-          )}
-        </div>
+            <div className="mt-3 space-y-2">
+              {completed.map(ev => (
+                <button
+                  key={ev.id}
+                  className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-left text-xs shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50`}
+                  onClick={() => setSelected(ev)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate font-semibold text-slate-900">{ev.title}</div>
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${pillClass(ev)}`}>
+                      {ev.type.replaceAll("_", " ").toLowerCase()}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-600">
+                    <span>{ev.date}</span>
+                    {ev.type === "BILL_DUE" && ev.autopay ? (
+                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                        autopay
+                      </span>
+                    ) : null}
+                  </div>
+                    {ev.amountCents != null ? (
+                      <div className="text-[11px] text-slate-700">{formatMoney(ev.amountCents, ev.currency ?? "CAD")}</div>
+                    ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Details drawer */}
@@ -444,6 +673,22 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                   {selected.source.kind} · {selected.source.sourceId.slice(0, 8)}…
                 </span>
               </div>
+              {selected.source.kind === "return" ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="opacity-70">Purchase date</span>
+                    <span>{selected.purchaseDate ?? "Unknown"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="opacity-70">Return by</span>
+                    <span>{selected.returnBy ?? "Potential return date not set"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="opacity-70">Tracking #</span>
+                    <span>{selected.trackingNumber && selected.trackingNumber.length ? selected.trackingNumber : "Not provided"}</span>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             {selected.type === "BILL_DUE" ? (
@@ -451,6 +696,35 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                 <div className="flex items-center justify-between text-sm">
                   <span className="opacity-70">Status</span>
                   <span className="font-medium">{selected.billStatus ?? "DUE"}</span>
+                </div>
+                {selected.autopay !== undefined ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="opacity-70">Autopay</span>
+                    <span className="font-medium">{selected.autopay ? "On" : "Off"}</span>
+                  </div>
+                ) : null}
+
+                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-slate-900">Edit bill</div>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Name</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.name} onChange={e => setBillEdit(v => ({ ...v, name: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.amount} onChange={e => setBillEdit(v => ({ ...v, amount: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Due day</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.dueDay} onChange={e => setBillEdit(v => ({ ...v, dueDay: e.target.value }))} />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={billEdit.autopay} onChange={e => setBillEdit(v => ({ ...v, autopay: e.target.checked }))} />
+                    <span>Autopay</span>
+                  </label>
+                  <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveBillEdit}>
+                    {editLoading ? "Saving…" : "Save bill"}
+                  </button>
                 </div>
 
                 {selected.billStatus !== "PAID" ? (
@@ -495,31 +769,86 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               </div>
             ) : null}
             {selected.type === "RENEWAL" ? (
-              <button
-                className="mt-6 w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
-                disabled={payLoading}
-                onClick={() => cancelSubscription(selected)}
-              >
-                {payLoading ? "Saving…" : "Mark as Cancelled"}
-              </button>
+              <div className="mt-6 space-y-3">
+                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-slate-900">Edit subscription</div>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Name</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.name} onChange={e => setSubEdit(v => ({ ...v, name: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.amount} onChange={e => setSubEdit(v => ({ ...v, amount: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Renewal date</div>
+                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.renewalDate} onChange={e => setSubEdit(v => ({ ...v, renewalDate: e.target.value }))} />
+                  </label>
+                  <div className="flex gap-2">
+                    <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveSubEdit}>
+                      {editLoading ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                      disabled={payLoading}
+                      onClick={() => cancelSubscription(selected)}
+                    >
+                      {payLoading ? "Saving…" : "Mark as Cancelled"}
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : null}
 
             {selected.type === "RETURN_DEADLINE" ? (
-              <div className="mt-6 space-y-2">
-                <button
-                  className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
-                  disabled={payLoading}
-                  onClick={() => markDroppedOff(selected)}
-                >
-                  {payLoading ? "Saving…" : "Mark Dropped Off"}
-                </button>
-                <button
-                  className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
-                  disabled={payLoading}
-                  onClick={() => markRefunded(selected)}
-                >
-                  {payLoading ? "Saving…" : "Mark Refunded"}
-                </button>
+              <div className="mt-6 space-y-3">
+                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-slate-900">Edit return</div>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Store</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.store} onChange={e => setReturnEdit(v => ({ ...v, store: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Item note</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.itemNote} onChange={e => setReturnEdit(v => ({ ...v, itemNote: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.amount} onChange={e => setReturnEdit(v => ({ ...v, amount: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Purchase date</div>
+                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.purchaseDate} onChange={e => setReturnEdit(v => ({ ...v, purchaseDate: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Return by</div>
+                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.returnBy} onChange={e => setReturnEdit(v => ({ ...v, returnBy: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Tracking # (optional)</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.trackingNumber} onChange={e => setReturnEdit(v => ({ ...v, trackingNumber: e.target.value }))} />
+                  </label>
+                  <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
+                    {editLoading ? "Saving…" : "Save return"}
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <button
+                    className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                    disabled={payLoading}
+                    onClick={() => markDroppedOff(selected)}
+                  >
+                    {payLoading ? "Saving…" : "Mark Dropped Off"}
+                  </button>
+                  <button
+                    className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                    disabled={payLoading}
+                    onClick={() => markRefunded(selected)}
+                  >
+                    {payLoading ? "Saving…" : "Mark Refunded"}
+                  </button>
+                </div>
               </div>
             ) : null}
 
@@ -531,6 +860,40 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               >
                 {payLoading ? "Saving…" : "Mark Refunded"}
               </button>
+            ) : null}
+            {selected.source.kind === "return" && selected.type !== "RETURN_DEADLINE" ? (
+              <div className="mt-6 space-y-3">
+                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-slate-900">Edit return</div>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Store</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.store} onChange={e => setReturnEdit(v => ({ ...v, store: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Item note</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.itemNote} onChange={e => setReturnEdit(v => ({ ...v, itemNote: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.amount} onChange={e => setReturnEdit(v => ({ ...v, amount: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Purchase date</div>
+                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.purchaseDate} onChange={e => setReturnEdit(v => ({ ...v, purchaseDate: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Return by</div>
+                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.returnBy} onChange={e => setReturnEdit(v => ({ ...v, returnBy: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <div className="text-xs opacity-70">Tracking # (optional)</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.trackingNumber} onChange={e => setReturnEdit(v => ({ ...v, trackingNumber: e.target.value }))} />
+                  </label>
+                  <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
+                    {editLoading ? "Saving…" : "Save return"}
+                  </button>
+                </div>
+              </div>
             ) : null}
             <div className="mt-8 text-sm opacity-70">
               Next we’ll wire this drawer to real actions: mark cancelled, mark dropped off, mark refunded, edit dates.

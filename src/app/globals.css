@@ -24,9 +24,9 @@ body {
 }
 
 .nav-link {
-  @apply rounded-full px-3 py-2 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900;
+  @apply rounded-full px-3 py-2 text-slate-700 transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 hover:shadow-md hover:scale-105 active:scale-95 active:shadow-sm active:bg-slate-200;
 }
 
 .pill-link {
-  @apply rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-800 transition hover:border-slate-300 hover:bg-slate-50;
+  @apply rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-800 transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50 hover:shadow-lg hover:shadow-emerald-200/50 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md active:bg-emerald-100 active:border-emerald-400;
 }

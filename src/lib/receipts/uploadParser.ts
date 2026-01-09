@@ -3,7 +3,7 @@
 import "server-only";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import pdfParse from "pdf-parse";
+const pdfParse = require("pdf-parse");
 
 function firstNonEmptyLine(text: string) {
   return text

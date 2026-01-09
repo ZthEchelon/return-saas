@@ -5,11 +5,11 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 // avoid importing prisma enums directly; use string unions matching schema
 
-export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-  const { id } = await ctx.params;
+  const { id } = await params;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
@@ -24,6 +24,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     status?: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
     dropoffDate?: Date | null;
     refundedDate?: Date | null;
+    trackingNumber?: string | null;
   } = {};
   if (typeof body.store === "string") data.store = body.store;
   if (typeof body.itemNote === "string" || body.itemNote === null) data.itemNote = body.itemNote;
@@ -68,6 +69,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   if (typeof body.refundedDate === "string" || body.refundedDate === null) {
     data.refundedDate = body.refundedDate ? new Date(body.refundedDate) : null;
+  }
+  if (typeof body.trackingNumber === "string" || body.trackingNumber === null) {
+    const t = typeof body.trackingNumber === "string" ? body.trackingNumber.trim() : null;
+    data.trackingNumber = t && t.length > 0 ? t : null;
   }
 
   const updated = await prisma.returnItem.updateMany({
