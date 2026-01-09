@@ -112,3 +112,105 @@ model BillPayment {
   @@unique([billId, monthKey])
   @@index([userId, monthKey])
 }
+
+enum Plan {
+  FREE
+  PRO
+}
+
+//data model for billing state
+model BillingAccount {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  plan                    Plan     @default(FREE)
+
+  stripeCustomerId        String?  @unique
+  stripeSubscriptionId    String?  @unique
+  stripePriceId           String?
+  stripeStatus            String?
+  currentPeriodEnd        DateTime?
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([plan])
+}
+model WebhookEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
+}
+enum EmailProvider {
+  GMAIL
+}
+
+enum SuggestionStatus {
+  NEW
+  CONFIRMED
+  IGNORED
+}
+
+enum SuggestionType {
+  RETURN
+  SUBSCRIPTION
+  BILL
+}
+
+model EmailConnection {
+  id           String        @id @default(cuid())
+  userId       String        @unique
+  provider     EmailProvider @default(GMAIL)
+
+  emailAddress String?
+  accessToken  String?
+  refreshToken String?
+  expiry       DateTime?
+  scope        String?
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model EmailMessage {
+  id           String        @id // Gmail messageId
+  userId       String
+  provider     EmailProvider @default(GMAIL)
+
+  threadId     String?
+  internalDate DateTime?
+  fromEmail    String?
+  subject      String?
+  snippet      String?
+
+  createdAt    DateTime      @default(now())
+
+  @@index([userId, provider])
+}
+
+model AutomationSuggestion {
+  id        String          @id @default(cuid())
+  userId    String
+  provider  EmailProvider   @default(GMAIL)
+
+  type      SuggestionType
+  status    SuggestionStatus @default(NEW)
+
+  merchant  String
+  amountCents Int?
+  currency  String          @default("CAD")
+  detectedDate DateTime
+
+  confidence String
+  reasons   Json
+  messageIds Json
+  draft     Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, type])
+}
+
+
+

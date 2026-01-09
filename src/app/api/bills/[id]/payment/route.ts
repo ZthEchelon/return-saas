@@ -10,6 +10,8 @@ function monthKeyFromISODate(dateYYYYMMDD: string) {
   return dateYYYYMMDD.slice(0, 7);
 }
 
+
+
 export async function POST(req: Request, ctx: { params: { id: string } }) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
@@ -17,6 +19,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const billId = ctx.params.id;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+
+
 
   const { dueDate, mark, amountCents, notes } = body;
 // dueDate: "YYYY-MM-DD", mark: "PAID" | "DUE"
@@ -50,6 +54,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     ...(typeof notes === "string" ? { notes } : {}),
   },
 });
+
+
 
 
   return NextResponse.json({ payment });

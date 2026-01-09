@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import type { BillStatus } from "@prisma/client";
+// no prisma enum import to avoid version/type export issues
 
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const { userId } = await auth();
@@ -21,7 +21,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     payee?: string | null;
     notes?: string | null;
     dueDayOfMonth?: number;
-    status?: BillStatus;
+    status?: "ACTIVE" | "PAUSED";
   } = {};
   if (typeof body.name === "string") data.name = body.name;
   if (typeof body.amountCents === "number" || body.amountCents === null) data.amountCents = body.amountCents;
@@ -42,7 +42,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     if (!["ACTIVE", "PAUSED"].includes(body.status)) {
       return NextResponse.json({ error: "status invalid" }, { status: 400 });
     }
-    data.status = body.status;
+    data.status = body.status as "ACTIVE" | "PAUSED";
   }
 
   const updated = await prisma.bill.updateMany({ where: { id, userId }, data });

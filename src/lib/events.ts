@@ -5,7 +5,7 @@ export type EventType = "RENEWAL" | "RETURN_DEADLINE" | "REFUND_CHECK" | "BILL_D
 export type CalendarEvent = {
   id: string;
   type: EventType;
-  date: string; // YYYY-MM-DD
+  date: string;
   title: string;
   amountCents?: number;
   currency?: string;
@@ -13,6 +13,7 @@ export type CalendarEvent = {
   monthKey?: string;
   source: { kind: "subscription" | "return" | "bill"; sourceId: string };
 };
+
 
 export function formatMoney(amountCents?: number, currency = "CAD") {
   if (amountCents == null) return "";

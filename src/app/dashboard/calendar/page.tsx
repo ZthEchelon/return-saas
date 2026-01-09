@@ -1,5 +1,6 @@
 //page for calendar
 
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import CalendarClient from "./ui/CalendarClient";
@@ -24,9 +25,23 @@ export default async function CalendarPage() {
 
   return (
     <main className="p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Calendar</h1>
-        <p className="text-sm opacity-70">Renewals, return deadlines, and refund checks.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Calendar</h1>
+          <p className="text-sm opacity-70">Renewals, return deadlines, and refund checks.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-xs uppercase tracking-wide opacity-60">Automation</span>
+          <Link className="rounded-full border px-3 py-1 hover:bg-neutral-50" href="/dashboard/automation">
+            Overview
+          </Link>
+          <Link className="rounded-full border px-3 py-1 hover:bg-neutral-50" href="/dashboard/automation/review">
+            Review
+          </Link>
+          <Link className="rounded-full border px-3 py-1 hover:bg-neutral-50" href="/dashboard/automation/rules">
+            Rules
+          </Link>
+        </div>
       </div>
 
       <CalendarClient initialStart={start} initialEnd={end} initialEvents={[]} />

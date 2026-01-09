@@ -3,7 +3,7 @@
  import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import type { ReturnStatus } from "@prisma/client";
+// avoid importing prisma enums directly; use string unions matching schema
 
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const { userId } = await auth();
@@ -21,7 +21,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     purchaseDate?: Date;
     returnWindowDays?: number;
     returnBy?: Date;
-    status?: ReturnStatus;
+    status?: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
     dropoffDate?: Date | null;
     refundedDate?: Date | null;
   } = {};
@@ -59,7 +59,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     if (!["NOT_STARTED", "PACKED", "DROPPED_OFF", "REFUNDED"].includes(body.status)) {
       return NextResponse.json({ error: "status invalid" }, { status: 400 });
     }
-    data.status = body.status;
+    data.status = body.status as "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
   }
 
   if (typeof body.dropoffDate === "string" || body.dropoffDate === null) {

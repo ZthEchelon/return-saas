@@ -18,6 +18,7 @@ export async function POST(req: Request) {
     currency = "CAD",
     purchaseDate,
     returnWindowDays = 30,
+    returnBy,
   } = body;
 
   if (!store || typeof store !== "string") return NextResponse.json({ error: "store required" }, { status: 400 });
@@ -31,8 +32,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "returnWindowDays invalid" }, { status: 400 });
   }
 
-  const returnBy = new Date(pd.getTime());
-  returnBy.setUTCDate(returnBy.getUTCDate() + windowDays);
+  let rb: Date;
+  if (typeof returnBy === "string" && returnBy.length > 0) {
+    rb = new Date(returnBy);
+    if (Number.isNaN(rb.getTime())) return NextResponse.json({ error: "returnBy invalid" }, { status: 400 });
+  } else {
+    rb = new Date(pd.getTime());
+    rb.setUTCDate(rb.getUTCDate() + windowDays);
+  }
 
   const created = await prisma.returnItem.create({
     data: {
@@ -43,7 +50,7 @@ export async function POST(req: Request) {
       currency,
       purchaseDate: pd,
       returnWindowDays: windowDays,
-      returnBy,
+      returnBy: rb,
       status: "NOT_STARTED",
     },
   });
