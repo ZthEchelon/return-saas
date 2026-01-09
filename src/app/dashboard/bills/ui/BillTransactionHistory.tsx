@@ -1,5 +1,6 @@
 import { getBillTransactionHistory } from "@/lib/transactions";
 import { formatMoney } from "@/lib/events";
+import type { TransactionRecord } from "@/lib/transactions";
 
 interface BillTransactionHistoryProps {
   userId: string;
@@ -10,7 +11,7 @@ export default async function BillTransactionHistory({
   userId,
   billId,
 }: BillTransactionHistoryProps) {
-  const transactions = await getBillTransactionHistory(userId, billId);
+  const transactions: TransactionRecord[] = await getBillTransactionHistory(userId, billId);
 
   if (transactions.length === 0) {
     return (
