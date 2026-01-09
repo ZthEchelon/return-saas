@@ -43,7 +43,8 @@ export async function GET() {
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
     // Get all bills for this user
-    const bills = await prisma.bill.findMany({
+    type BillRow = { amountCents: number | null; payments: { paidAt: Date | null; amountCents: number | null }[] };
+    const bills: BillRow[] = await prisma.bill.findMany({
       where: { userId },
       include: { payments: true },
     });
@@ -56,8 +57,22 @@ export async function GET() {
     });
 
     // Get all returns for this user
-    const returns = await prisma.returnItem.findMany({
+    type ReturnRow = {
+      amountCents: number | null;
+      refundAmountCents: number | null;
+      refundExpectedBy: Date | null;
+      refundedDate: Date | null;
+      status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+    };
+    const returns: ReturnRow[] = await prisma.returnItem.findMany({
       where: { userId },
+      select: {
+        amountCents: true,
+        refundAmountCents: true,
+        refundExpectedBy: true,
+        refundedDate: true,
+        status: true,
+      },
     });
 
     // Calculate monthly breakdown (last 6 months)
@@ -142,8 +157,10 @@ export async function GET() {
     };
 
     // Top merchants (from EmailTransaction for returns)
-    const transactions = await prisma.emailTransaction.findMany({
+    type TxRow = { merchant: string; totalCents: number | null };
+    const transactions: TxRow[] = await prisma.emailTransaction.findMany({
       where: { userId },
+      select: { merchant: true, totalCents: true },
     });
 
     const merchantMap = new Map<string, { total: number; count: number }>();
