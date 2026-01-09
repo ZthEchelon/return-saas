@@ -24,21 +24,21 @@ export default async function CalendarPage() {
   const end = toISODateOnlyUTC(firstDayOfNextMonthUTC(now));
 
   return (
-    <main className="p-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <main className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white/80 p-6 shadow-sm">
         <div>
-          <h1 className="text-2xl font-semibold">Calendar</h1>
-          <p className="text-sm opacity-70">Renewals, return deadlines, and refund checks.</p>
+          <h1 className="text-3xl font-semibold text-slate-900">Calendar</h1>
+          <p className="text-sm text-slate-600">Renewals, return deadlines, and refund checks.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs uppercase tracking-wide opacity-60">Automation</span>
-          <Link className="rounded-full border px-3 py-1 hover:bg-neutral-50" href="/dashboard/automation">
+          <span className="rounded-full bg-slate-900 px-3 py-1 text-white">Automation</span>
+          <Link className="pill-link" href="/dashboard/automation">
             Overview
           </Link>
-          <Link className="rounded-full border px-3 py-1 hover:bg-neutral-50" href="/dashboard/automation/review">
+          <Link className="pill-link" href="/dashboard/automation/review">
             Review
           </Link>
-          <Link className="rounded-full border px-3 py-1 hover:bg-neutral-50" href="/dashboard/automation/rules">
+          <Link className="pill-link" href="/dashboard/automation/rules">
             Rules
           </Link>
         </div>

@@ -142,7 +142,33 @@ model WebhookEvent {
 }
 enum EmailProvider {
   GMAIL
+  UPLOAD
 }
+enum ReceiptUploadStatus {
+  PARSED
+  NEEDS_REVIEW
+  FAILED
+}
+
+model ReceiptUpload {
+  id          String             @id @default(cuid())
+  userId      String
+
+  filename    String
+  contentType String
+  sizeBytes   Int
+  storagePath String
+
+  status      ReceiptUploadStatus @default(NEEDS_REVIEW)
+  extracted   Json?
+  error       String?
+
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([userId, createdAt])
+}
+
 
 enum SuggestionStatus {
   NEW
@@ -188,16 +214,18 @@ model EmailMessage {
 }
 
 model AutomationSuggestion {
-  id        String          @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
-  provider  EmailProvider   @default(GMAIL)
+  provider  EmailProvider    @default(GMAIL)
+
+  primaryMessageId String?   // optional message used as dedupe key
 
   type      SuggestionType
   status    SuggestionStatus @default(NEW)
 
   merchant  String
   amountCents Int?
-  currency  String          @default("CAD")
+  currency  String           @default("CAD")
   detectedDate DateTime
 
   confidence String
@@ -210,7 +238,30 @@ model AutomationSuggestion {
 
   @@index([userId, status])
   @@index([userId, type])
+  @@unique([userId, primaryMessageId])
 }
+model EmailTransaction {
+  id        String        @id @default(cuid())
+  userId    String
+  provider  EmailProvider @default(GMAIL)
 
+  messageId String
+  merchant  String
+  fromEmail String?
+  subject   String?
+
+  purchasedAt DateTime?
+  orderId     String?
+  totalCents  Int?
+  currency    String  @default("CAD")
+  items       Json?
+  rawSource   String
+
+  createdAt DateTime @default(now())
+
+  @@unique([provider, messageId])
+  @@index([userId, merchant])
+  @@index([userId, purchasedAt])
+}
 
 

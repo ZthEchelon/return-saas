@@ -1,48 +1,68 @@
-//get suggestions + post confirm/ignore (and create real items)
+// Get automation suggestions + confirm/ignore actions
+// GET: Fetch all NEW suggestions for user from database
+// POST: CONFIRM creates actual return/subscription/bill records, IGNORE just marks status
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import type { Suggestion, SuggestionType } from "@/lib/automation";
+import type { SuggestionType } from "@/lib/automation";
 
-const mem = globalThis as unknown as {
-  __suggestions?: Map<string, Suggestion[]>;
+type Draft = {
+  purchaseDate?: string;
+  returnBy?: string;
+  returnWindowDays?: number;
+  renewalDate?: string;
+  cadence?: "MONTHLY" | "YEARLY";
+  dueDayOfMonth?: number;
+  autopay?: boolean;
+  itemNote?: string | null;
 };
-const store = (mem.__suggestions ??= new Map<string, Suggestion[]>());
 
+// Helper to convert ISO date string to Date
 function isoToDate(s: string) {
   return new Date(s + "T00:00:00.000Z");
 }
 
-async function createFromSuggestion(userId: string, s: Suggestion) {
-  if (s.type === "SUBSCRIPTION") {
-    const renewalDate = s.draft.renewalDate ?? new Date().toISOString().slice(0, 10);
+// Helper to create actual records (returns, subscriptions, bills) from automation suggestion
+async function createFromSuggestion(userId: string, suggestion: {
+  type: SuggestionType;
+  merchant: string;
+  amountCents?: number | null;
+  currency?: string;
+  draft?: Draft;
+}) {
+  const draft = suggestion.draft ?? {};
+
+  if (suggestion.type === "SUBSCRIPTION") {
+    const renewalDate = typeof draft.renewalDate === "string" ? draft.renewalDate : new Date().toISOString().slice(0, 10);
+    const cadence = draft.cadence === "YEARLY" ? "YEARLY" : "MONTHLY";
     await prisma.subscription.create({
       data: {
         userId,
-        name: s.merchant,
-        amountCents: s.amountCents ?? 0,
-        currency: s.currency ?? "CAD",
+        name: suggestion.merchant,
+        amountCents: suggestion.amountCents ?? 0,
+        currency: suggestion.currency ?? "CAD",
         renewalDate: isoToDate(renewalDate),
-        cadence: s.draft.cadence ?? "MONTHLY",
+        cadence,
         status: "ACTIVE",
       },
     });
     return;
   }
 
-  if (s.type === "RETURN") {
-    const purchaseDate = s.draft.purchaseDate ?? new Date().toISOString().slice(0, 10);
-    const returnBy = s.draft.returnBy ?? purchaseDate; // fallback
+  if (suggestion.type === "RETURN") {
+    const purchaseDate = typeof draft.purchaseDate === "string" ? draft.purchaseDate : new Date().toISOString().slice(0, 10);
+    const returnBy = typeof draft.returnBy === "string" ? draft.returnBy : purchaseDate;
+    const windowDays = typeof draft.returnWindowDays === "number" ? draft.returnWindowDays : 30;
     await prisma.returnItem.create({
       data: {
         userId,
-        store: s.merchant,
-        itemNote: null,
-        amountCents: s.amountCents ?? null,
-        currency: s.currency ?? "CAD",
+        store: suggestion.merchant,
+        itemNote: draft.itemNote ?? null,
+        amountCents: suggestion.amountCents ?? null,
+        currency: suggestion.currency ?? "CAD",
         purchaseDate: isoToDate(purchaseDate),
-        returnWindowDays: s.draft.returnWindowDays ?? 30,
+        returnWindowDays: windowDays,
         returnBy: isoToDate(returnBy),
         status: "NOT_STARTED",
       },
@@ -50,15 +70,15 @@ async function createFromSuggestion(userId: string, s: Suggestion) {
     return;
   }
 
-  if (s.type === "BILL") {
+  if (suggestion.type === "BILL") {
     await prisma.bill.create({
       data: {
         userId,
-        name: s.merchant,
-        amountCents: s.amountCents && s.amountCents > 0 ? s.amountCents : null,
-        currency: s.currency ?? "CAD",
-        dueDayOfMonth: s.draft.dueDayOfMonth ?? 1,
-        autopay: Boolean(s.draft.autopay ?? false),
+        name: suggestion.merchant,
+        amountCents: suggestion.amountCents && suggestion.amountCents > 0 ? suggestion.amountCents : null,
+        currency: suggestion.currency ?? "CAD",
+        dueDayOfMonth: typeof draft.dueDayOfMonth === "number" ? draft.dueDayOfMonth : 1,
+        autopay: Boolean(draft.autopay ?? false),
         status: "ACTIVE",
       },
     });
@@ -66,14 +86,20 @@ async function createFromSuggestion(userId: string, s: Suggestion) {
   }
 }
 
+// GET: Fetch all NEW suggestions for the authenticated user
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-  const list = store.get(userId) ?? [];
-  return NextResponse.json({ suggestions: list });
+  const suggestions = await prisma.automationSuggestion.findMany({
+    where: { userId, status: "NEW" },
+    orderBy: { detectedDate: "desc" },
+  });
+
+  return NextResponse.json({ suggestions });
 }
 
+// POST: Handle CONFIRM (create actual record) or IGNORE (skip suggestion) actions
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
@@ -84,40 +110,60 @@ export async function POST(req: Request) {
   const { id, action, draft } = body as {
     id: string;
     action: "CONFIRM" | "IGNORE";
-    draft?: Partial<Suggestion["draft"]> & {
-      amountCents?: number;
-      currency?: "CAD";
-      merchant?: string;
-      type?: SuggestionType;
-    };
+    draft?: Draft;
   };
 
-  const list = store.get(userId) ?? [];
-  const idx = list.findIndex((x: Suggestion) => x.id === id);
-  if (idx === -1) return new NextResponse("Not found", { status: 404 });
+  if (!id || !action) {
+    return NextResponse.json({ error: "Missing id or action" }, { status: 400 });
+  }
 
-  const current = list[idx];
+  // Find the suggestion
+  const suggestion = await prisma.automationSuggestion.findUnique({
+    where: { id },
+  });
 
+  if (!suggestion || suggestion.userId !== userId) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
+  // Handle IGNORE: just mark as IGNORED
   if (action === "IGNORE") {
-    list[idx] = { ...current, status: "IGNORED" };
-    store.set(userId, list);
+    await prisma.automationSuggestion.update({
+      where: { id },
+      data: { status: "IGNORED" },
+    });
     return NextResponse.json({ ok: true });
   }
 
-  // CONFIRM: allow edits from UI before creation
-  const merged: Suggestion = {
-    ...current,
-    merchant: draft?.merchant ?? current.merchant,
-    type: (draft?.type ?? current.type) as SuggestionType,
-    amountCents: draft?.amountCents ?? current.amountCents,
-    currency: draft?.currency ?? current.currency,
-    draft: { ...current.draft, ...((draft as Partial<Suggestion["draft"]>) ?? {}) },
-  };
+  // Handle CONFIRM: merge draft overrides and create the actual record
+  if (action === "CONFIRM") {
+    const baseDraft = (suggestion.draft ?? {}) as Draft;
+    const merged = { ...baseDraft, ...(draft ?? {}) };
 
-  await createFromSuggestion(userId, merged);
+    try {
+      await createFromSuggestion(userId, {
+        type: suggestion.type as SuggestionType,
+        merchant: suggestion.merchant,
+        amountCents: suggestion.amountCents,
+        currency: suggestion.currency,
+        draft: merged,
+      });
 
-  list[idx] = { ...merged, status: "CONFIRMED" };
-  store.set(userId, list);
+      // Mark suggestion as CONFIRMED
+      await prisma.automationSuggestion.update({
+        where: { id },
+        data: { status: "CONFIRMED" },
+      });
 
-  return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true });
+    } catch (error) {
+      console.error("Error creating record from suggestion:", error);
+      return NextResponse.json(
+        { error: "Failed to create record" },
+        { status: 500 }
+      );
+    }
+  }
+
+  return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 }

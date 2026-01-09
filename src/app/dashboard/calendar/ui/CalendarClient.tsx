@@ -1,4 +1,4 @@
-//ui for calendar client 
+// Client-side calendar: renders month grid, fetches events per month, and shows an info drawer.
 
 "use client";
 
@@ -134,6 +134,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
     const start = toISODateOnlyUTC(startOfMonthUTC(next));
     const end = toISODateOnlyUTC(addMonthsUTC(next, 1));
+    // Pull fresh events for the visible month window.
     const nextEvents = await loadEvents(start, end);
     setEvents(nextEvents);
     setSelected(null);
@@ -142,6 +143,25 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   const monthLabel = useMemo(() => {
     return new Intl.DateTimeFormat("en-CA", { month: "long", year: "numeric", timeZone: "UTC" }).format(month);
   }, [month]);
+
+  const todayISO = useMemo(() => {
+    const now = new Date();
+    return toISODateOnlyUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
+  }, []);
+
+  const typePills: Record<CalendarEvent["type"], string> = {
+    RENEWAL: "bg-emerald-100 text-emerald-700",
+    RETURN_DEADLINE: "bg-cyan-100 text-cyan-700",
+    REFUND_CHECK: "bg-amber-100 text-amber-800",
+    BILL_DUE: "bg-indigo-100 text-indigo-800",
+  };
+
+  const cardBg: Record<CalendarEvent["type"], string> = {
+    RENEWAL: "bg-emerald-50",
+    RETURN_DEADLINE: "bg-cyan-50",
+    REFUND_CHECK: "bg-amber-50",
+    BILL_DUE: "bg-indigo-50",
+  };
 
   async function seedDemo() {
     setLoading(true);
@@ -258,35 +278,23 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+    <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
       {/* Calendar */}
-      <div className="rounded-2xl border bg-white/50 p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="text-lg font-semibold">{monthLabel}</div>
-          <div className="flex gap-2">
-            <button className="rounded-xl border px-3 py-1 text-sm" onClick={() => goTo(-1)}>
-              Prev
+      <div className="rounded-2xl border bg-white/80 p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-2xl font-semibold text-slate-900">{monthLabel}</div>
+            <div className="text-sm text-slate-500">Renewals, return deadlines, refund checks, and bills.</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => goTo(-1)}>
+              ← Prev
+            </button>
+            <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => goTo(1)}>
+              Next →
             </button>
             <button
-              className="rounded-xl border px-3 py-1 text-sm"
-              onClick={() => setShowAddBill(true)}
-            >
-              Add Bill
-            </button>
-
-            <button className="rounded-xl border px-3 py-1 text-sm" onClick={() => setShowAddSub(true)}>
-              Add Subscription
-            </button>
-
-            <button className="rounded-xl border px-3 py-1 text-sm" onClick={() => setShowAddReturn(true)}>
-              Add Return
-            </button>
-
-            <button className="rounded-xl border px-3 py-1 text-sm" onClick={() => goTo(1)}>
-              Next
-            </button>
-            <button
-              className="rounded-xl border px-3 py-1 text-sm"
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
               onClick={seedDemo}
               disabled={loading}
               title="Insert demo subscription + return for this month"
@@ -294,76 +302,111 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               {loading ? "Seeding…" : "Seed demo"}
             </button>
           </div>
+        </div>
 
-          <div className="mt-3 grid grid-cols-7 text-xs opacity-70">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-              <div key={d} className="px-2 py-1">{d}</div>
-            ))}
-          </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">Renewal</span>
+          <span className="rounded-full bg-cyan-100 px-3 py-1 font-semibold text-cyan-700">Return deadline</span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">Refund check</span>
+          <span className="rounded-full bg-indigo-100 px-3 py-1 font-semibold text-indigo-800">Bill due</span>
+        </div>
 
-          <div className="grid grid-cols-7 gap-2">
-            {grid.map(({ date, inMonth }) => {
-              const key = toISODateOnlyUTC(date);
-              const dayEvents = eventsByDate.get(key) ?? [];
-              const dayNum = date.getUTCDate();
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => setShowAddBill(true)}>
+            + Bill
+          </button>
+          <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => setShowAddSub(true)}>
+            + Subscription
+          </button>
+          <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => setShowAddReturn(true)}>
+            + Return
+          </button>
+        </div>
 
-              return (
-                <div
-                  key={key}
-                  className={`min-h-[96px] rounded-xl border p-2 ${
-                    inMonth ? "bg-white" : "bg-neutral-50 opacity-70"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="text-xs font-medium">{dayNum}</div>
-                  </div>
+        <div className="mt-4 grid grid-cols-7 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+            <div key={d} className="px-2 py-1">{d}</div>
+          ))}
+        </div>
 
-                  <div className="mt-2 space-y-1">
-                    {dayEvents.slice(0, 2).map(ev => (
-                      <button
-                        key={ev.id}
-                        className="w-full truncate rounded-lg border px-2 py-1 text-left text-xs hover:bg-neutral-50"
-                        onClick={() => setSelected(ev)}
-                        title={ev.title}
-                      >
-                        <span className="font-medium">{ev.title}</span>
-                        {ev.amountCents != null ? (
-                          <span className="opacity-70"> · {formatMoney(ev.amountCents, ev.currency ?? "CAD")}</span>
-                        ) : null}
-                      </button>
-                    ))}
-                    {dayEvents.length > 2 ? (
-                      <div className="text-[11px] opacity-70">+{dayEvents.length - 2} more</div>
-                    ) : null}
-                  </div>
+        <div className="grid grid-cols-7 gap-2">
+          {grid.map(({ date, inMonth }) => {
+            const key = toISODateOnlyUTC(date);
+            const dayEvents = eventsByDate.get(key) ?? [];
+            const dayNum = date.getUTCDate();
+            const isToday = key === todayISO;
+
+            return (
+              <div
+                key={key}
+                className={`relative min-h-[120px] rounded-xl border p-2 transition ${
+                  inMonth ? "bg-white hover:border-slate-300" : "bg-slate-50 text-slate-400"
+                } ${isToday ? "ring-2 ring-slate-900 ring-offset-2 ring-offset-white" : ""}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className={`text-xs font-semibold ${isToday ? "text-slate-900" : "text-slate-600"}`}>{dayNum}</div>
+                  {dayEvents.length > 2 ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">+{dayEvents.length - 2}</span>
+                  ) : null}
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="mt-2 space-y-2">
+                  {dayEvents.slice(0, 2).map(ev => (
+                    <button
+                      key={ev.id}
+                      className={`w-full rounded-lg border border-transparent px-2 py-2 text-left text-xs shadow-sm transition hover:border-slate-200 ${cardBg[ev.type]}`}
+                      onClick={() => setSelected(ev)}
+                      title={ev.title}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-semibold text-slate-900">{ev.title}</span>
+                        <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${typePills[ev.type]}`}>
+                          {ev.type.replaceAll("_", " ").toLowerCase()}
+                        </span>
+                      </div>
+                      {ev.amountCents != null ? (
+                        <div className="mt-1 text-[11px] text-slate-600">{formatMoney(ev.amountCents, ev.currency ?? "CAD")}</div>
+                      ) : null}
+                    </button>
+                  ))}
+                  {dayEvents.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-200 px-2 py-6 text-center text-[11px] text-slate-400">
+                      Empty
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Upcoming */}
-      <div className="rounded-2xl border bg-white/50 p-4 shadow-sm">
-        <div className="text-sm font-semibold">Upcoming</div>
-        <div className="mt-3 space-y-2">
+      <div className="rounded-2xl border bg-white/80 p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-900">Upcoming</div>
+          <div className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
+        </div>
+        <div className="mt-3 space-y-3">
           {upcoming.length === 0 ? (
-            <div className="text-sm opacity-70">No upcoming events.</div>
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+              Nothing scheduled. Add a bill, subscription, or return to see it here.
+            </div>
           ) : (
             upcoming.map(ev => (
               <button
                 key={ev.id}
-                className="w-full rounded-xl border px-3 py-2 text-left hover:bg-neutral-50"
+                className={`w-full rounded-xl border px-3 py-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${cardBg[ev.type]}`}
                 onClick={() => setSelected(ev)}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="truncate text-sm font-medium">{ev.title}</div>
-                  <div className="text-sm opacity-70">
-                    {ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : ""}
-                  </div>
+                  <div className="truncate text-sm font-semibold text-slate-900">{ev.title}</div>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${typePills[ev.type]}`}>
+                    {ev.type.replaceAll("_", " ").toLowerCase()}
+                  </span>
                 </div>
-                <div className="mt-1 text-xs opacity-70">
-                  {ev.date} · {ev.type.replaceAll("_", " ").toLowerCase()}
+                <div className="mt-1 text-xs text-slate-600">
+                  {ev.date} · {ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}
                 </div>
               </button>
             ))

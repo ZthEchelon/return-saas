@@ -1,7 +1,7 @@
 //mark paid/ or mark due endpoint
 //toggles payment status for am onth
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -12,11 +12,11 @@ function monthKeyFromISODate(dateYYYYMMDD: string) {
 
 
 
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-  const billId = ctx.params.id;
+  const { id: billId } = await ctx.params;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 

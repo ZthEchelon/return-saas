@@ -25,6 +25,8 @@ export default function InboxReview() {
   const [renewalDate, setRenewalDate] = useState("");
   const [dueDay, setDueDay] = useState("");
   const [amount, setAmount] = useState("");
+  const [merchant, setMerchant] = useState("");
+  const [type, setType] = useState<Suggestion["type"]>("RETURN");
 
   async function load() {
     setLoading(true);
@@ -66,6 +68,8 @@ export default function InboxReview() {
     setReturnBy(selected.draft.returnBy ?? "");
     setRenewalDate(selected.draft.renewalDate ?? "");
     setDueDay(selected.draft.dueDayOfMonth != null ? String(selected.draft.dueDayOfMonth) : "");
+    setMerchant(selected.merchant);
+    setType(selected.type);
   }, [selected]);
 
   async function act(id: string, action: "CONFIRM" | "IGNORE") {
@@ -74,7 +78,14 @@ export default function InboxReview() {
       const s = items.find((x) => x.id === id);
       if (!s) return;
 
-      const draft: Partial<Suggestion["draft"]> & { amountCents?: number } = {};
+      const draft: Partial<Suggestion["draft"]> & { amountCents?: number; merchant?: string; type?: Suggestion["type"] } = {};
+
+      if (merchant.trim().length > 0) {
+        draft.merchant = merchant.trim();
+      }
+      if (type) {
+        draft.type = type;
+      }
 
       const dollars = amount.trim();
       if (dollars.length > 0 && Number.isFinite(Number(dollars))) {
@@ -183,6 +194,28 @@ export default function InboxReview() {
             </div>
 
             <div className="mt-4 space-y-3 text-sm">
+              <label className="block">
+                <div className="mb-1 opacity-70">Merchant</div>
+                <input
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  value={merchant}
+                  onChange={(e) => setMerchant(e.target.value)}
+                />
+              </label>
+
+              <label className="block">
+                <div className="mb-1 opacity-70">Type</div>
+                <select
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  value={type}
+                  onChange={(e) => setType(e.target.value as Suggestion["type"])}
+                >
+                  <option value="RETURN">Return</option>
+                  <option value="SUBSCRIPTION">Subscription</option>
+                  <option value="BILL">Bill</option>
+                </select>
+              </label>
+
               <div className="flex items-center justify-between">
                 <span className="opacity-70">Detected</span>
                 <span>{selected.detectedDate}</span>

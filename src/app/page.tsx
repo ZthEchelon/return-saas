@@ -1,65 +1,80 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <section className="grid gap-10 rounded-3xl border bg-white/80 p-10 shadow-xl backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="space-y-4">
+          <p className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">Returns & Renewals</p>
+          <h1 className="text-4xl font-semibold leading-tight text-slate-900">
+            Track returns, subscriptions, and bills without the busywork.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="max-w-2xl text-lg text-slate-600">
+            Pull important dates from email, confirm what matters, and keep a calm calendar of renewals, refund checks, and due dates.
           </p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <Link className="rounded-full bg-slate-900 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-slate-800" href="/dashboard">
+              Go to dashboard
+            </Link>
+            <Link className="rounded-full border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" href="/dashboard/calendar">
+              View calendar
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="flex flex-col gap-3 rounded-2xl border bg-slate-50 px-6 py-5 text-sm text-slate-800 shadow-inner">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">Next 7 days</span>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">3 items</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
+              <div>
+                <div className="text-sm font-semibold">Netflix renewal</div>
+                <div className="text-xs text-slate-500">Feb 12 · $20.99</div>
+              </div>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Subscription</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
+              <div>
+                <div className="text-sm font-semibold">Nike return window</div>
+                <div className="text-xs text-slate-500">Feb 14 · refund check</div>
+              </div>
+              <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">Return</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
+              <div>
+                <div className="text-sm font-semibold">Hydro bill due</div>
+                <div className="text-xs text-slate-500">Feb 15 · autopay off</div>
+              </div>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Bill</span>
+            </div>
+          </div>
         </div>
-      </main>
+      </div>
+
+      <div className="grid gap-4 rounded-2xl border bg-white/80 p-6 shadow-sm lg:grid-cols-3">
+        <Feature
+          title="Email-powered"
+          body="Scan Gmail, suggest returns/subscriptions/bills, and confirm with one click."
+        />
+        <Feature
+          title="Calendar-first"
+          body="See renewals, return windows, and refund checks in one calm view."
+        />
+        <Feature
+          title="Fast edits"
+          body="Adjust dates and amounts before creating records—no spreadsheets needed."
+        />
+      </div>
+    </section>
+  );
+}
+
+function Feature({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 shadow-inner">
+      <div className="text-base font-semibold text-slate-900">{title}</div>
+      <div className="mt-2 text-sm text-slate-600">{body}</div>
     </div>
   );
 }

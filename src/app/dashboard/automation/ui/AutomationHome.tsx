@@ -1,21 +1,57 @@
-//automation page
-
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function AutomationHome() {
+  const [connected, setConnected] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [found, setFound] = useState<number | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function loadStatus() {
+    const res = await fetch("/api/gmail/status", { cache: "no-store" });
+    const data = await res.json();
+    setConnected(Boolean(data.connected));
+    setEmail(data.emailAddress ?? null);
+  }
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  async function disconnect() {
+    await fetch("/api/gmail/disconnect", { method: "POST" });
+    await loadStatus();
+  }
 
   async function scanNow() {
     setScanning(true);
-    setFound(null);
+    setResult(null);
+
     try {
-      const res = await fetch("/api/automation/scan", { method: "POST" });
-      const data = await res.json();
-      setFound(data.found ?? 0);
+      const res = await fetch("/api/automation/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 90, max: 100 }),
+      });
+
+      const text = await res.text();
+      let data: Record<string, unknown> | null = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // not JSON
+      }
+
+      if (!res.ok) {
+        setResult(String(data?.error ?? text ?? "Scan failed"));
+        return;
+      }
+
+      setResult(
+        `Imported ${data?.importedEmails} · already scanned ${data?.alreadyScanned} · suggestions ${data?.suggestionsCreated}`
+      );
     } finally {
       setScanning(false);
     }
@@ -26,56 +62,52 @@ export default function AutomationHome() {
       <div className="rounded-2xl border p-4">
         <div className="text-sm font-semibold">Connection</div>
         <div className="mt-1 text-sm opacity-70">
-          Gmail/Outlook OAuth hookup comes next. For now, Scan generates demo suggestions.
+          {connected ? `Connected: ${email ?? "Gmail"}` : "Not connected"}
         </div>
 
         <div className="mt-3 flex gap-2">
-          <button className="rounded-xl border px-3 py-2 text-sm opacity-60" disabled>
-            Connect Gmail (soon)
-          </button>
-          <button className="rounded-xl border px-3 py-2 text-sm opacity-60" disabled>
-            Connect Outlook (soon)
-          </button>
+          {!connected ? (
+            <a
+              className="rounded-xl border px-3 py-2 text-sm hover:bg-neutral-50"
+              href="/api/gmail/connect"
+            >
+              Connect Gmail
+            </a>
+          ) : (
+            <button className="rounded-xl border px-3 py-2 text-sm hover:bg-neutral-50" onClick={disconnect}>
+              Disconnect
+            </button>
+          )}
+
+          <Link className="rounded-xl border px-3 py-2 text-sm hover:bg-neutral-50" href="/dashboard/automation/review">
+            Inbox Review
+          </Link>
         </div>
       </div>
 
       <div className="rounded-2xl border p-4">
-        <div className="text-sm font-semibold">Scan controls</div>
-        <div className="mt-2 grid gap-2 md:grid-cols-3">
-          <div className="rounded-xl border px-3 py-2 text-sm opacity-70">Scope: Inbox</div>
-          <div className="rounded-xl border px-3 py-2 text-sm opacity-70">Range: last 30 days</div>
-          <div className="rounded-xl border px-3 py-2 text-sm opacity-70">Types: all</div>
-        </div>
+        <div className="text-sm font-semibold">Scan</div>
+        <div className="mt-2 text-sm opacity-70">Scans last 90 days. Nothing is created until you confirm.</div>
 
         <div className="mt-3 flex items-center gap-3">
           <button
             className="rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
             onClick={scanNow}
-            disabled={scanning}
+            disabled={!connected || scanning}
           >
             {scanning ? "Scanning…" : "Scan now"}
           </button>
 
-          <Link className="text-sm underline opacity-80" href="/dashboard/automation/review">
-            Go to Inbox Review
-          </Link>
-
-          {found != null ? (
-            <div className="text-sm opacity-70">Found: {found} suggestions</div>
-          ) : null}
-        </div>
-
-        <div className="mt-2 text-xs opacity-60">
-          Nothing is created automatically. You confirm every item.
+          {result ? <div className="text-sm opacity-70">{result}</div> : null}
+          {!connected ? <div className="text-sm opacity-60">Connect Gmail to scan.</div> : null}
         </div>
       </div>
 
       <div className="rounded-2xl border p-4">
         <div className="text-sm font-semibold">Privacy-first</div>
         <ul className="mt-2 text-sm opacity-70 list-disc pl-5 space-y-1">
-          <li>Choose what to scan (labels/folders later)</li>
-          <li>One-click disconnect (later)</li>
-          <li>Delete imported suggestions anytime (later)</li>
+          <li>You confirm every suggestion</li>
+          <li>Disconnect anytime</li>
         </ul>
       </div>
     </div>
