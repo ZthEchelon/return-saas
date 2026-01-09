@@ -6,7 +6,20 @@ export default async function ReceiptBrowserPage() {
   const { userId } = await auth();
   if (!userId) return <div>Unauthorized</div>;
 
-  const receipts = await prisma.emailTransaction.findMany({
+  type ReceiptRow = {
+    id: string;
+    merchant: string;
+    subject: string | null;
+    totalCents: number | null;
+    currency: string;
+    purchasedAt: Date | null;
+    items: unknown;
+    orderId: string | null;
+    fromEmail: string | null;
+    receiptDocuments: { id: string; filename: string; storagePath: string; sizeBytes: number }[];
+  };
+
+  const receipts: ReceiptRow[] = await prisma.emailTransaction.findMany({
     where: { userId },
     include: { receiptDocuments: true },
     orderBy: { purchasedAt: "desc" },
@@ -50,7 +63,7 @@ export default async function ReceiptBrowserPage() {
               )}
             </div>
 
-            {receipt.items && Array.isArray(receipt.items) && receipt.items.length > 0 && (
+            {receipt.items && Array.isArray(receipt.items) && receipt.items.length > 0 ? (
               <div className="mb-4 space-y-1">
                 {receipt.items.slice(0, 3).map((item: unknown, idx: number) => {
                   const obj = item as Record<string, unknown>;
@@ -66,7 +79,7 @@ export default async function ReceiptBrowserPage() {
                   <p className="text-xs text-slate-500">+{receipt.items.length - 3} more items</p>
                 )}
               </div>
-            )}
+            ) : null}
 
             {receipt.receiptDocuments.length > 0 && (
               <div className="border-t pt-4">
