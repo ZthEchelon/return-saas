@@ -30,11 +30,13 @@ export async function getBillTransactionHistory(userId: string, billId: string) 
 }
 
 export async function getReturnTransactionHistory(userId: string, returnId: string) {
+  if (!returnId) return [];
+
   const ret = await prisma.returnItem.findUnique({
     where: { id: returnId },
   });
 
-  if (!ret) return [];
+  if (!ret || ret.userId !== userId) return [];
 
   const transactions: TransactionRecord[] = [];
 

@@ -7,6 +7,7 @@ import ThemeToggle from "./ui/ThemeToggle";
 
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: "⚡", hint: "Today" },
+  { title: "Pricing", href: "/pricing", icon: "💰", hint: "Plans" },
   { title: "Analytics", href: "/dashboard/analytics", icon: "📊", hint: "Spending" },
   { title: "Calendar", href: "/dashboard/calendar", icon: "🗓", hint: "Month + agenda" },
   { title: "Returns", href: "/dashboard/returns", icon: "📦", hint: "Deadlines + refunds" },

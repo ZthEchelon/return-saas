@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pricingPlans } from "./pricing/plans";
 
 export default function Home() {
   const navLinks = [
@@ -57,56 +58,6 @@ export default function Home() {
       step: "3",
       title: "Save money, stay organized",
       body: "Avoid surprise renewals and missed returns. Track savings over time in one calm view.",
-    },
-  ];
-
-  const pricing = [
-    {
-      name: "Free",
-      price: "$0",
-      period: "/mo",
-      badge: "Perfect for getting started",
-      bullets: [
-        "Track up to 10 items",
-        "Basic reminders (1 lead time)",
-        "Simple dashboard",
-        "Email notifications",
-      ],
-      cta: "Get Started",
-      highlight: false,
-    },
-    {
-      name: "Pro",
-      price: "$7",
-      period: "/mo",
-      badge: "Most Popular",
-      subtext: "Billed $84/year",
-      bullets: [
-        "Unlimited items",
-        "Multiple lead times",
-        "Weekly digest emails",
-        "Advanced filters & search",
-        "Calendar export",
-        "Priority email support",
-      ],
-      cta: "Upgrade to Pro",
-      highlight: true,
-    },
-    {
-      name: "Pro+",
-      price: "$15",
-      period: "/mo",
-      badge: "Everything in Pro",
-      subtext: "Billed $180/year",
-      bullets: [
-        "Smart suggestions",
-        "Auto-import from email",
-        "Team sharing (coming soon)",
-        "API access",
-        "Dedicated support",
-      ],
-      cta: "Go Pro+",
-      highlight: false,
     },
   ];
 
@@ -378,7 +329,7 @@ export default function Home() {
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          {pricing.map(plan => (
+          {pricingPlans.map(plan => (
             <div
               key={plan.name}
               className={`rounded-2xl border p-6 shadow-sm ${
