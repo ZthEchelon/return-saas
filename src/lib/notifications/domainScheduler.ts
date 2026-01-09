@@ -1,0 +1,336 @@
+//one scheduler file 
+
+import { prisma } from "@/lib/prisma";
+import { NotificationType, Prisma } from "@prisma/client";
+
+// ---------- date helpers (UTC day buckets) ----------
+function startOfDayUTC(d: Date) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+function addDaysUTC(d: Date, days: number) {
+  const out = new Date(d.getTime());
+  out.setUTCDate(out.getUTCDate() + days);
+  return out;
+}
+function isoDateOnly(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+function clampDayToMonth(year: number, monthZero: number, day: number) {
+  const lastDay = new Date(Date.UTC(year, monthZero + 1, 0)).getUTCDate();
+  return Math.min(day, lastDay);
+}
+
+async function upsertNotification(args: {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body?: string;
+  eventDate?: Date;
+  scheduledFor: Date;
+  sourceKind: string;
+  sourceId: string;
+  eventKey: string;
+}) {
+  return prisma.notification.upsert({
+    where: { userId_eventKey: { userId: args.userId, eventKey: args.eventKey } },
+    create: {
+      userId: args.userId,
+      type: args.type,
+      title: args.title,
+      body: args.body,
+      eventDate: args.eventDate,
+      scheduledFor: args.scheduledFor,
+      sourceKind: args.sourceKind,
+      sourceId: args.sourceId,
+      eventKey: args.eventKey,
+    },
+    update: {}, // idempotent: don’t spam-update once created
+  });
+}
+
+async function dismissStaleBySource(args: {
+  userId: string;
+  sourceKind: string;
+  // exact sourceId OR prefix match (for bills monthly keys)
+  sourceId?: string;
+  sourceIdStartsWith?: string;
+  keepEventKeys: string[];
+}) {
+  const where: Prisma.NotificationWhereInput = {
+    userId: args.userId,
+    sourceKind: args.sourceKind,
+    dismissedAt: null,
+    eventKey: { notIn: args.keepEventKeys },
+  };
+  if (args.sourceId) where.sourceId = args.sourceId;
+  if (args.sourceIdStartsWith) where.sourceId = { startsWith: args.sourceIdStartsWith };
+
+  await prisma.notification.updateMany({
+    where,
+    data: { dismissedAt: new Date() },
+  });
+}
+
+// ---------- scheduling primitives ----------
+function computeScheduledFor(todayUTC: Date, eventDayUTC: Date, leadDays: number) {
+  const notifyDay = startOfDayUTC(addDaysUTC(eventDayUTC, -leadDays));
+  // If user adds/edits late, don’t miss: schedule for today instead of the past
+  return notifyDay < todayUTC ? todayUTC : notifyDay;
+}
+
+// ---------- public APIs you call from your routes ----------
+export async function scheduleSubscriptionRenewalSoon(args: {
+  userId: string;
+  subscriptionId: string;
+  name: string;
+  renewalDate: Date;
+  amountCents?: number | null;
+  currency?: string | null;
+}) {
+  const pref = await prisma.notificationPreference.findUnique({
+    where: { userId: args.userId },
+    select: { subLeadDays: true },
+  });
+  const leadDays = pref?.subLeadDays ?? 3;
+
+  const today = startOfDayUTC(new Date());
+  const eventDay = startOfDayUTC(args.renewalDate);
+  const scheduledFor = computeScheduledFor(today, eventDay, leadDays);
+
+  const eventISO = isoDateOnly(eventDay);
+  const amt = args.amountCents != null ? `${args.currency ?? "CAD"} ${(args.amountCents / 100).toFixed(2)}` : "";
+
+  const title = `${args.name} renews in ${leadDays} days`;
+  const body = `Renews on ${eventISO}${amt ? ` · ${amt}` : ""}. If you want to cancel, do it before renewal.`;
+
+  const eventKey = `sub:${args.subscriptionId}:${eventISO}:lead${leadDays}`;
+
+  await upsertNotification({
+    userId: args.userId,
+    type: "SUBSCRIPTION_RENEWAL_SOON",
+    title,
+    body,
+    eventDate: eventDay,
+    scheduledFor,
+    sourceKind: "subscription",
+    sourceId: args.subscriptionId,
+    eventKey,
+  });
+
+  await dismissStaleBySource({
+    userId: args.userId,
+    sourceKind: "subscription",
+    sourceId: args.subscriptionId,
+    keepEventKeys: [eventKey],
+  });
+}
+
+export async function scheduleReturnDeadlineSoon(args: {
+  userId: string;
+  returnId: string;
+  store: string;
+  itemNote?: string | null;
+  returnBy: Date;
+  amountCents?: number | null;
+  currency?: string | null;
+  status: "NOT_STARTED" | "PACKED" | "RETURNED" | "REFUNDED";
+}) {
+  // only schedule if still actionable
+  if (!(args.status === "NOT_STARTED" || args.status === "PACKED")) {
+    // dismiss any previously scheduled deadline notifications
+    await prisma.notification.updateMany({
+      where: { userId: args.userId, sourceKind: "return", sourceId: args.returnId, type: "RETURN_DEADLINE_SOON", dismissedAt: null },
+      data: { dismissedAt: new Date() },
+    });
+    return;
+  }
+
+  const pref = await prisma.notificationPreference.findUnique({
+    where: { userId: args.userId },
+    select: { returnLeadDays: true },
+  });
+  const leadDays = pref?.returnLeadDays ?? 2;
+
+  const today = startOfDayUTC(new Date());
+  const eventDay = startOfDayUTC(args.returnBy);
+  const scheduledFor = computeScheduledFor(today, eventDay, leadDays);
+
+  const eventISO = isoDateOnly(eventDay);
+  const amt = args.amountCents != null ? `${args.currency ?? "CAD"} ${(args.amountCents / 100).toFixed(2)}` : "";
+
+  const title = `Return deadline in ${leadDays} days`;
+  const body = `${args.store}${args.itemNote ? ` — ${args.itemNote}` : ""} · Return by ${eventISO}${amt ? ` · ${amt}` : ""}.`;
+
+  const eventKey = `ret:${args.returnId}:${eventISO}:lead${leadDays}`;
+
+  await upsertNotification({
+    userId: args.userId,
+    type: "RETURN_DEADLINE_SOON",
+    title,
+    body,
+    eventDate: eventDay,
+    scheduledFor,
+    sourceKind: "return",
+    sourceId: args.returnId,
+    eventKey,
+  });
+
+  await dismissStaleBySource({
+    userId: args.userId,
+    sourceKind: "return",
+    sourceId: args.returnId,
+    keepEventKeys: [eventKey],
+  });
+}
+
+export async function scheduleBillDueSoon(args: {
+  userId: string;
+  billId: string;
+  name: string;
+  dueDayOfMonth: number;
+  amountCents?: number | null;
+  currency?: string | null;
+}) {
+  const pref = await prisma.notificationPreference.findUnique({
+    where: { userId: args.userId },
+    select: { billLeadDays: true, windowDays: true },
+  });
+
+  const leadDays = pref?.billLeadDays ?? 2;
+  const windowDays = pref?.windowDays ?? 14;
+
+  const today = startOfDayUTC(new Date());
+  const horizon = startOfDayUTC(addDaysUTC(today, windowDays));
+
+  // generate due dates month-by-month within the window
+  const keepKeys: string[] = [];
+  const yStart = today.getUTCFullYear();
+  const mStart = today.getUTCMonth();
+
+  // at most 3 months covers windowDays up to ~90 comfortably
+  for (let mOff = 0; mOff < 4; mOff++) {
+    const y = new Date(Date.UTC(yStart, mStart + mOff, 1)).getUTCFullYear();
+    const m = new Date(Date.UTC(yStart, mStart + mOff, 1)).getUTCMonth();
+
+    const day = clampDayToMonth(y, m, args.dueDayOfMonth);
+    const due = new Date(Date.UTC(y, m, day));
+    const dueDay = startOfDayUTC(due);
+
+    if (dueDay < today || dueDay > horizon) continue;
+
+    const scheduledFor = computeScheduledFor(today, dueDay, leadDays);
+    const dueISO = isoDateOnly(dueDay);
+
+    const amt = args.amountCents != null ? `${args.currency ?? "CAD"} ${(args.amountCents / 100).toFixed(2)}` : "amount unknown";
+    const title = `${args.name} due in ${leadDays} days`;
+    const body = `Due on ${dueISO} · ${amt}.`;
+
+    const monthKey = dueISO.slice(0, 7);
+    const eventKey = `bill:${args.billId}:${dueISO}:lead${leadDays}`;
+    keepKeys.push(eventKey);
+
+    await upsertNotification({
+      userId: args.userId,
+      type: "BILL_DUE_SOON",
+      title,
+      body,
+      eventDate: dueDay,
+      scheduledFor,
+      sourceKind: "bill",
+      sourceId: `${args.billId}:${monthKey}`,
+      eventKey,
+    });
+  }
+
+  // dismiss stale month notifications for this bill that no longer fit the window
+  await dismissStaleBySource({
+    userId: args.userId,
+    sourceKind: "bill",
+    sourceIdStartsWith: `${args.billId}:`,
+    keepEventKeys: keepKeys,
+  });
+}
+
+// Refund-related scheduling (optional but matches your current cron behavior)
+export async function scheduleRefundChecks(args: {
+  userId: string;
+  returnId: string;
+  store: string;
+  dropoffDate: Date | null;
+  refundedDate: Date | null;
+}) {
+  if (!args.dropoffDate || args.refundedDate) return;
+
+  const today = startOfDayUTC(new Date());
+  const drop = startOfDayUTC(args.dropoffDate);
+
+  const checks = [
+    { days: 7, label: "Refund check (7d)" },
+    { days: 14, label: "Refund check (14d)" },
+  ];
+
+  const keepKeys: string[] = [];
+
+  for (const c of checks) {
+    const checkDay = startOfDayUTC(addDaysUTC(drop, c.days));
+    // schedule “today” if already passed but not refunded (so you still see it)
+    const scheduledFor = checkDay < today ? today : checkDay;
+
+    const eventISO = isoDateOnly(checkDay);
+    const title = `${c.label}: ${args.store}`;
+    const body = `Follow up on refund · ${eventISO}.`;
+    const eventKey = `refund_check:${args.returnId}:${c.days}:${eventISO}`;
+    keepKeys.push(eventKey);
+
+    await upsertNotification({
+      userId: args.userId,
+      type: "REFUND_CHECK_DUE",
+      title,
+      body,
+      eventDate: checkDay,
+      scheduledFor,
+      sourceKind: "return",
+      sourceId: args.returnId,
+      eventKey,
+    });
+  }
+
+  await dismissStaleBySource({
+    userId: args.userId,
+    sourceKind: "return",
+    sourceId: args.returnId,
+    keepEventKeys: keepKeys,
+  });
+}
+
+export async function scheduleRefundOverdueOnce(args: {
+  userId: string;
+  returnId: string;
+  store: string;
+  refundExpectedBy: Date | null;
+  refundedDate: Date | null;
+}) {
+  if (!args.refundExpectedBy || args.refundedDate) return;
+
+  const today = startOfDayUTC(new Date());
+  const expected = startOfDayUTC(args.refundExpectedBy);
+
+  if (expected >= today) return; // not overdue yet
+
+  const expectedISO = isoDateOnly(expected);
+  const title = `Refund overdue: ${args.store}`;
+  const body = `Expected by ${expectedISO}. Follow up to recover your refund.`;
+  const eventKey = `refund_overdue:${args.returnId}:${expectedISO}`;
+
+  await upsertNotification({
+    userId: args.userId,
+    type: "REFUND_OVERDUE",
+    title,
+    body,
+    eventDate: expected,
+    scheduledFor: today, // show in today's digest as overdue
+    sourceKind: "return",
+    sourceId: args.returnId,
+    eventKey,
+  });
+}

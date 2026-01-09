@@ -337,6 +337,19 @@ enum NotificationType {
   REFUND_OVERDUE
 }
 
+enum NotificationChannel {
+  EMAIL_DIGEST
+  EMAIL_IMMEDIATE
+}
+
+enum NotificationJobStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  CANCELED
+}
+
 model Notification {
   id           String           @id @default(cuid())
   userId       String
@@ -360,15 +373,48 @@ model Notification {
 
   readAt       DateTime?
   dismissedAt  DateTime?
+  emailedAt    DateTime?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  jobs         NotificationJob[]
 
   @@unique([userId, eventKey])
   @@index([userId, scheduledFor])
   @@index([userId, readAt])
   @@index([userId, dismissedAt])
 }
+model NotificationJob {
+  id          String               @id @default(cuid())
+  userId      String
+  channel     NotificationChannel
+  status      NotificationJobStatus @default(PENDING)
+
+  sendAt      DateTime             // when it should be sent (UTC)
+  attempts    Int                  @default(0)
+  lastError   String?
+  sentAt      DateTime?
+
+  // concurrency / claiming
+  lockedAt    DateTime?
+  lockId      String?              // random run id
+
+  // tie back to what this job is about
+  notificationId String?
+  notification   Notification?     @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+
+  // dedupe: one job per "thing" per channel per sendAt bucket
+  dedupeKey   String
+
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([userId, dedupeKey])
+  @@index([status, sendAt])
+  @@index([userId, sendAt])
+}
+
 model NotificationPreference {
   userId            String  @id
   emailDigestEnabled Boolean @default(false)

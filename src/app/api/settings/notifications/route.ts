@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleNextDigestJob, cancelPendingDigestJobs } from "@/lib/notifications/digestJobs";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,13 @@ export async function POST(req: Request) {
       primaryEmail,
     },
   });
+
+  // Schedule or cancel digest jobs based on enabled state
+  if (digest) {
+    await scheduleNextDigestJob(userId, { timezone, digestHourLocal });
+  } else {
+    await cancelPendingDigestJobs(userId);
+  }
 
   return NextResponse.json({ preference: updated });
 }

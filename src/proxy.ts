@@ -4,21 +4,21 @@
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/api(.*)",
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/cron(.*)",        // ✅ allow cron endpoints without Clerk
+  "/api/webhooks(.*)",    // (optional) if you have Stripe webhooks etc
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect();
-  }
+  if (isPublicRoute(req)) return;
+  await auth.protect();
 });
 
 export const config = {
   matcher: [
-    // run middleware on all app routes + api
-    "/((?!_next|.*\\..*).*)",
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
   ],
 };

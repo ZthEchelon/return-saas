@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/domainScheduler";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -32,6 +33,15 @@ export async function POST(req: Request) {
       cancelUrl: cancelUrl ?? null,
       notes: notes ?? null,
     },
+  });
+
+  await scheduleSubscriptionRenewalSoon({
+    userId,
+    subscriptionId: created.id,
+    name: created.name,
+    renewalDate: created.renewalDate,
+    amountCents: created.amountCents,
+    currency: created.currency,
   });
 
   return NextResponse.json({ subscription: created });

@@ -1,0 +1,10 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "TypeScript check digestJobs",
+			"type": "shell",
+			"command": "node -e \"console.log('ts check placeholder')\""
+		}
+	]
+}
