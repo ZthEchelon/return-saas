@@ -21,10 +21,10 @@ export default async function ReturnDetailPage({
   }
 
   const statusColors: Record<string, string> = {
-    NOT_STARTED: "bg-slate-100 text-slate-700",
-    PACKED: "bg-amber-100 text-amber-700",
-    DROPPED_OFF: "bg-blue-100 text-blue-700",
-    REFUNDED: "bg-emerald-100 text-emerald-700",
+    NOT_STARTED: "bg-slate-500/25 text-slate-100",
+    PACKED: "bg-amber-500/25 text-amber-50",
+    DROPPED_OFF: "bg-blue-500/25 text-blue-50",
+    REFUNDED: "bg-emerald-500/25 text-emerald-50",
   };
 
   const statusIcons: Record<string, string> = {
@@ -36,13 +36,16 @@ export default async function ReturnDetailPage({
 
   const isRefunded = ret.status === "REFUNDED";
   const isExpectedRefund = ret.refundExpectedBy ? new Date() < ret.refundExpectedBy : false;
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 text-slate-50">
+      <div className="flex items-start justify-between rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">{ret.store}</h1>
-          <p className="mt-1 text-slate-600">
+          <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Return detail</p>
+          <h1 className="text-3xl font-bold text-white">{ret.store}</h1>
+          <p className="mt-1 text-slate-300">
             Purchased {ret.purchaseDate.toLocaleDateString("en-CA")}
           </p>
         </div>
@@ -53,82 +56,82 @@ export default async function ReturnDetailPage({
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500">Purchase Amount</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="text-xs font-semibold text-slate-400">Purchase Amount</p>
+          <p className="mt-2 text-2xl font-bold text-white">
             {formatMoney(ret.amountCents ?? 0, ret.currency)}
           </p>
         </div>
-        <div className={`rounded-xl border p-4 shadow-sm ${isRefunded ? "bg-emerald-50 border-emerald-200" : "bg-slate-50"}`}>
-          <p className={`text-xs font-semibold ${isRefunded ? "text-emerald-700" : "text-slate-500"}`}>
+        <div className={`rounded-xl border p-4 ${isRefunded ? "border-emerald-300/30 bg-emerald-500/10" : "border-white/10 bg-white/5"}`}>
+          <p className={`text-xs font-semibold ${isRefunded ? "text-emerald-100" : "text-slate-400"}`}>
             {isRefunded ? "Refunded Amount" : "Expected Refund"}
           </p>
-          <p className={`mt-2 text-2xl font-bold ${isRefunded ? "text-emerald-900" : "text-slate-900"}`}>
+          <p className={`mt-2 text-2xl font-bold ${isRefunded ? "text-white" : "text-slate-100"}`}>
             {formatMoney(ret.refundAmountCents ?? ret.amountCents ?? 0, ret.currency)}
           </p>
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500">Return Window</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{ret.returnWindowDays} days</p>
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="text-xs font-semibold text-slate-400">Return Window</p>
+          <p className="mt-2 text-2xl font-bold text-white">{ret.returnWindowDays} days</p>
         </div>
-        <div className={`rounded-xl border p-4 shadow-sm ${isExpectedRefund ? "bg-amber-50 border-amber-200" : "bg-slate-50"}`}>
-          <p className={`text-xs font-semibold ${isExpectedRefund ? "text-amber-700" : "text-slate-500"}`}>
+        <div className={`rounded-xl border p-4 ${isExpectedRefund ? "border-amber-300/30 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
+          <p className={`text-xs font-semibold ${isExpectedRefund ? "text-amber-100" : "text-slate-400"}`}>
             Time to Refund
           </p>
           {ret.refundExpectedBy && (
-            <p className={`mt-2 text-2xl font-bold ${isExpectedRefund ? "text-amber-900" : "text-slate-900"}`}>
-              {Math.max(0, Math.ceil((ret.refundExpectedBy.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days
+            <p className={`mt-2 text-2xl font-bold ${isExpectedRefund ? "text-white" : "text-slate-100"}`}>
+              {Math.max(0, Math.ceil((ret.refundExpectedBy.getTime() - nowMs) / (1000 * 60 * 60 * 24)))} days
             </p>
           )}
         </div>
       </div>
 
       {/* Return Details */}
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Details</h2>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30">
+        <h2 className="mb-4 text-lg font-semibold text-white">Details</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <p className="text-xs font-semibold text-slate-500">Store</p>
-            <p className="mt-1 text-slate-900 font-medium">{ret.store}</p>
+            <p className="text-xs font-semibold text-slate-400">Store</p>
+            <p className="mt-1 font-medium text-white">{ret.store}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500">Purchase Date</p>
-            <p className="mt-1 text-slate-900">{ret.purchaseDate.toLocaleDateString("en-CA")}</p>
+            <p className="text-xs font-semibold text-slate-400">Purchase Date</p>
+            <p className="mt-1 text-slate-100">{ret.purchaseDate.toLocaleDateString("en-CA")}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500">Return Deadline</p>
-            <p className="mt-1 text-slate-900">{ret.returnBy.toLocaleDateString("en-CA")}</p>
+            <p className="text-xs font-semibold text-slate-400">Return Deadline</p>
+            <p className="mt-1 text-slate-100">{ret.returnBy.toLocaleDateString("en-CA")}</p>
           </div>
           {ret.dropoffDate && (
             <div>
-              <p className="text-xs font-semibold text-slate-500">Dropped Off</p>
-              <p className="mt-1 text-slate-900">{ret.dropoffDate.toLocaleDateString("en-CA")}</p>
+              <p className="text-xs font-semibold text-slate-400">Dropped Off</p>
+              <p className="mt-1 text-slate-100">{ret.dropoffDate.toLocaleDateString("en-CA")}</p>
             </div>
           )}
           {ret.refundExpectedBy && (
             <div>
-              <p className="text-xs font-semibold text-slate-500">Expected Refund By</p>
-              <p className="mt-1 text-slate-900">{ret.refundExpectedBy.toLocaleDateString("en-CA")}</p>
+              <p className="text-xs font-semibold text-slate-400">Expected Refund By</p>
+              <p className="mt-1 text-slate-100">{ret.refundExpectedBy.toLocaleDateString("en-CA")}</p>
             </div>
           )}
           {ret.refundedDate && (
             <div>
-              <p className="text-xs font-semibold text-slate-500">Refunded On</p>
-              <p className="mt-1 text-green-700 font-medium">{ret.refundedDate.toLocaleDateString("en-CA")}</p>
+              <p className="text-xs font-semibold text-slate-400">Refunded On</p>
+              <p className="mt-1 font-medium text-emerald-100">{ret.refundedDate.toLocaleDateString("en-CA")}</p>
             </div>
           )}
           {ret.itemNote && (
             <div className="md:col-span-2">
-              <p className="text-xs font-semibold text-slate-500">Item Notes</p>
-              <p className="mt-1 text-slate-900">{ret.itemNote}</p>
+              <p className="text-xs font-semibold text-slate-400">Item Notes</p>
+              <p className="mt-1 text-slate-100">{ret.itemNote}</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Transaction History */}
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Timeline</h2>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30">
+        <h2 className="mb-4 text-lg font-semibold text-white">Timeline</h2>
         <ReturnTransactionHistory userId={userId} returnId={ret.id} />
       </div>
     </div>

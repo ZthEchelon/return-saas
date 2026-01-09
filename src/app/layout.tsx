@@ -1,29 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
-//clerk imports
+import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import {
   ClerkProvider,
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
 } from "@clerk/nextjs";
 import "./globals.css";
-import NotificationsBadgeServer from "./ui/NotificationsBadgeServer";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ variable: "--font-geist-sans", subsets: ["latin"] });
+const grotesk = Space_Grotesk({ variable: "--font-grotesk", subsets: ["latin"] });
+const jetbrains = JetBrains_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Returns & Subscriptions",
@@ -37,68 +23,20 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <header className="sticky top-0 z-20 border-b bg-white/90 backdrop-blur-md">
-          <nav className="mx-auto max-w-7xl px-6 py-3">
-            <div className="flex flex-wrap items-center gap-6">
-              {/* Logo & Home Links */}
-              <div className="flex items-center gap-4">
-                <div className="rounded-full bg-gradient-to-r from-emerald-200 to-cyan-200 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm">
-                  ReturnSaaS
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Link className="nav-link" href="/">Home</Link>
-                  <Link className="nav-link" href="/dashboard">Dashboard</Link>
-                  <Link className="nav-link" href="/dashboard/calendar">Calendar</Link>
-                  <Link className="nav-link" href="/dashboard/analytics">Analytics</Link>
-                </div>
-              </div>
-
-              {/* Automation */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-slate-900 px-3 py-1 text-white font-semibold">Automation</span>
-                <Link className="pill-link" href="/dashboard/automation">Overview</Link>
-                <Link className="pill-link" href="/dashboard/automation/review">Review</Link>
-                <Link className="pill-link" href="/dashboard/automation/rules">Rules</Link>
-              </div>
-
-              {/* Receipts */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-emerald-600 px-3 py-1 text-white font-semibold">Receipts</span>
-                <Link className="pill-link" href="/dashboard/receipts/browser">Browser</Link>
-                <Link className="pill-link" href="/dashboard/receipts/upload">Upload</Link>
-              </div>
-
-              {/* Bills */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-blue-600 px-3 py-1 text-white font-semibold">Bills</span>
-                <Link className="pill-link" href="/dashboard/bills">View</Link>
-              </div>
-
-              {/* Returns */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-cyan-600 px-3 py-1 text-white font-semibold">Returns</span>
-                <Link className="pill-link" href="/dashboard/returns">View</Link>
-              </div>
-
-              {/* Notifications & Settings */}
-              <div className="flex items-center gap-3 text-sm ml-auto">
-                <Link className="nav-link" href="/dashboard/notifications">Notifications</Link>
-                <Link className="nav-link" href="/dashboard/settings">Settings</Link>
-                <NotificationsBadgeServer />
-                <UserButton />
-              </div>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${inter.variable} ${grotesk.variable} ${jetbrains.variable} antialiased bg-slate-950 text-slate-50`}>
+          <div className="relative min-h-screen bg-noise overflow-hidden">
+            <div className="pointer-events-none absolute inset-0 mix-blend-screen">
+              <div className="absolute -left-10 top-0 h-80 w-80 rounded-full bg-cyan-500/20 blur-[120px]" />
+              <div className="absolute right-[-120px] top-20 h-96 w-96 rounded-full bg-emerald-400/15 blur-[130px]" />
+              <div className="absolute left-1/2 bottom-[-120px] h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-[#8b5cf6]/10 blur-[160px]" />
             </div>
-          </nav>
-        </header>
-        <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
-        <Analytics />
-        <SpeedInsights />
-      </body>
-    </html>
+            <main className="relative z-10">{children}</main>
+          </div>
+          <Analytics />
+          <SpeedInsights />
+        </body>
+      </html>
     </ClerkProvider>
   );
 }

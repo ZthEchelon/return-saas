@@ -269,37 +269,37 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   }, []);
 
   const typePills: Record<CalendarEvent["type"], string> = {
-    RENEWAL: "bg-emerald-100 text-emerald-700",
-    RETURN_DEADLINE: "bg-cyan-100 text-cyan-700",
-    REFUND_CHECK: "bg-amber-100 text-amber-800",
-    REFUND_EXPECTED: "bg-amber-100 text-amber-800",
-    REFUNDED: "bg-emerald-100 text-emerald-700",
-    CANCELLED_SUBSCRIPTION: "bg-slate-200 text-slate-800",
-    BILL_DUE: "bg-indigo-100 text-indigo-800",
+    RENEWAL: "bg-emerald-500/20 text-emerald-100",
+    RETURN_DEADLINE: "bg-cyan-500/20 text-cyan-100",
+    REFUND_CHECK: "bg-amber-400/25 text-amber-50",
+    REFUND_EXPECTED: "bg-amber-400/25 text-amber-50",
+    REFUNDED: "bg-emerald-400/25 text-emerald-50",
+    CANCELLED_SUBSCRIPTION: "bg-slate-500/25 text-slate-100",
+    BILL_DUE: "bg-indigo-500/20 text-indigo-100",
   };
 
   const cardBg: Record<CalendarEvent["type"], string> = {
-    RENEWAL: "bg-emerald-50",
-    RETURN_DEADLINE: "bg-cyan-50",
-    REFUND_CHECK: "bg-amber-50",
-    REFUND_EXPECTED: "bg-amber-50",
-    REFUNDED: "bg-emerald-50",
-    CANCELLED_SUBSCRIPTION: "bg-slate-50",
-    BILL_DUE: "bg-indigo-50",
+    RENEWAL: "border border-emerald-300/25 bg-emerald-500/10",
+    RETURN_DEADLINE: "border border-cyan-300/25 bg-cyan-500/10",
+    REFUND_CHECK: "border border-amber-300/25 bg-amber-400/10",
+    REFUND_EXPECTED: "border border-amber-300/25 bg-amber-400/10",
+    REFUNDED: "border border-emerald-300/25 bg-emerald-500/10",
+    CANCELLED_SUBSCRIPTION: "border border-slate-400/30 bg-slate-800/60",
+    BILL_DUE: "border border-indigo-300/25 bg-indigo-500/10",
   };
 
   function pillClass(ev: CalendarEvent) {
     if (ev.type === "BILL_DUE") {
       return ev.billStatus === "PAID"
-        ? "bg-emerald-100 text-emerald-700"
-        : "bg-indigo-100 text-indigo-800";
+        ? "bg-emerald-400/25 text-emerald-50"
+        : "bg-indigo-500/25 text-indigo-100";
     }
     return typePills[ev.type];
   }
 
   function cardClass(ev: CalendarEvent) {
     if (ev.type === "BILL_DUE") {
-      return ev.billStatus === "PAID" ? "bg-emerald-50" : "bg-indigo-50";
+      return ev.billStatus === "PAID" ? "border border-emerald-300/25 bg-emerald-500/10" : "border border-indigo-300/25 bg-indigo-500/10";
     }
     return cardBg[ev.type];
   }
@@ -487,23 +487,23 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[2.6fr_1fr] xl:grid-cols-[2.8fr_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[2.5fr_1fr] xl:grid-cols-[2.6fr_1fr]">
       {/* Calendar */}
-      <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg">
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/40">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-3xl font-semibold text-slate-900">{monthLabel}</div>
-            <div className="text-sm text-slate-500">Renewals, return deadlines, refund checks, and bills.</div>
+            <div className="text-3xl font-semibold text-white">{monthLabel}</div>
+            <div className="text-sm text-slate-300">Renewals, return deadlines, refund checks, and bills.</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => goTo(-1)}>
+            <button className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => goTo(-1)}>
               ← Prev
             </button>
-            <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => goTo(1)}>
+            <button className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => goTo(1)}>
               Next →
             </button>
             <button
-              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
+              className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-emerald-200/40 hover:bg-white/20"
               onClick={seedDemo}
               disabled={loading}
               title="Insert demo subscription + return for this month"
@@ -513,18 +513,18 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]">
-          <span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">Renewal</span>
-          <span className="rounded-full bg-cyan-100 px-3 py-1 font-semibold text-cyan-700">Return deadline</span>
-          <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">Refund check / expected</span>
-          <span className="rounded-full bg-emerald-200 px-3 py-1 font-semibold text-emerald-800">Refunded / paid</span>
-          <span className="rounded-full bg-slate-200 px-3 py-1 font-semibold text-slate-800">Cancelled</span>
-          <span className="rounded-full bg-indigo-100 px-3 py-1 font-semibold text-indigo-800">Bill due</span>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
+          <span className="rounded-full bg-emerald-500/20 px-3 py-1 font-semibold text-emerald-100">Renewal</span>
+          <span className="rounded-full bg-cyan-500/20 px-3 py-1 font-semibold text-cyan-100">Return deadline</span>
+          <span className="rounded-full bg-amber-400/25 px-3 py-1 font-semibold text-amber-100">Refund check / expected</span>
+          <span className="rounded-full bg-emerald-400/30 px-3 py-1 font-semibold text-emerald-50">Refunded / paid</span>
+          <span className="rounded-full bg-slate-500/20 px-3 py-1 font-semibold text-slate-100">Cancelled</span>
+          <span className="rounded-full bg-indigo-500/20 px-3 py-1 font-semibold text-indigo-100">Bill due</span>
         </div>
 
         {/* Filter Controls */}
-        <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4 shadow-inner">
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+        <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/20">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-200">
             <span>Filters:</span>
           </div>
           
@@ -539,8 +539,8 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               }}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 filterTypes.has("BILL")
-                  ? "border-indigo-300 bg-indigo-100 text-indigo-800"
-                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  ? "border-indigo-200/60 bg-indigo-500/20 text-indigo-50 shadow-indigo-500/20"
+                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
               }`}
             >
               Bills {filterTypes.has("BILL") && "✓"}
@@ -554,8 +554,8 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               }}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 filterTypes.has("SUBSCRIPTION")
-                  ? "border-emerald-300 bg-emerald-100 text-emerald-800"
-                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  ? "border-emerald-200/60 bg-emerald-500/20 text-emerald-50 shadow-emerald-500/20"
+                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
               }`}
             >
               Subscriptions {filterTypes.has("SUBSCRIPTION") && "✓"}
@@ -569,8 +569,8 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               }}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 filterTypes.has("RETURN")
-                  ? "border-cyan-300 bg-cyan-100 text-cyan-800"
-                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  ? "border-cyan-200/60 bg-cyan-500/20 text-cyan-50 shadow-cyan-500/20"
+                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
               }`}
             >
               Returns {filterTypes.has("RETURN") && "✓"}
@@ -579,8 +579,8 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               onClick={() => setAutopayOnly(!autopayOnly)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 autopayOnly
-                  ? "border-violet-300 bg-violet-100 text-violet-800"
-                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  ? "border-violet-200/60 bg-violet-500/20 text-violet-50 shadow-violet-500/20"
+                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
               }`}
             >
               Autopay only {autopayOnly && "✓"}
@@ -589,8 +589,8 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               onClick={() => setOverdueOnly(!overdueOnly)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 overdueOnly
-                  ? "border-rose-300 bg-rose-100 text-rose-800"
-                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                  ? "border-rose-200/60 bg-rose-500/20 text-rose-50 shadow-rose-500/20"
+                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
               }`}
             >
               Overdue only {overdueOnly && "✓"}
@@ -604,12 +604,12 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               placeholder="Search by merchant or store..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/60 focus:outline-none focus:ring-2 focus:ring-cyan-200/20"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
               >
                 ✕
               </button>
@@ -617,22 +617,22 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
-          <span className="text-slate-500">Add items to your calendar:</span>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-200">
+          <span className="text-slate-400">Add items to your calendar:</span>
           <button
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 transition hover:border-slate-300 hover:bg-slate-50"
+            className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:border-cyan-200/40 hover:bg-white/20"
             onClick={() => setShowAddBill(true)}
           >
             + Add Bill (due date)
           </button>
           <button
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 transition hover:border-slate-300 hover:bg-slate-50"
+            className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:border-emerald-200/40 hover:bg-white/20"
             onClick={() => setShowAddSub(true)}
           >
             + Add Subscription (renewal)
           </button>
           <button
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 transition hover:border-slate-300 hover:bg-slate-50"
+            className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:border-cyan-200/40 hover:bg-white/20"
             onClick={() => setShowAddReturn(true)}
           >
             + Add Return (deadline)
@@ -663,18 +663,18 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
             return (
               <div
                 key={key}
-                className={`relative min-h-40 min-w-[160px] md:min-w-[180px] rounded-2xl border p-3 transition ${
-                  inMonth ? "bg-white hover:border-slate-300" : "bg-slate-50 text-slate-400"
-                } ${isToday ? "ring-2 ring-slate-900 ring-offset-2 ring-offset-white" : ""}`}
+                className={`relative min-h-40 min-w-[160px] md:min-w-[180px] rounded-2xl border border-white/10 p-3 transition ${
+                  inMonth ? "bg-slate-900/60 hover:border-cyan-200/40" : "bg-slate-900/30 text-slate-500"
+                } ${isToday ? "ring-2 ring-cyan-400/80 ring-offset-2 ring-offset-slate-950" : ""}`}
               >
                 <div className="flex items-start justify-between">
-                  <div className={`text-sm font-semibold ${isToday ? "text-slate-900" : "text-slate-600"}`}>{dayNum}</div>
+                  <div className={`text-sm font-semibold ${isToday ? "text-white" : "text-slate-300"}`}>{dayNum}</div>
                   <div className="flex items-center gap-1">
                     {completedOnDay > 0 ? (
-                      <span className="text-base" title={`${completedOnDay} task${completedOnDay > 1 ? "s" : ""} completed`}>⭐</span>
+                      <span className="text-base text-emerald-100" title={`${completedOnDay} task${completedOnDay > 1 ? "s" : ""} completed`}>⭐</span>
                     ) : null}
                     {dayEvents.length > 3 ? (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">+{dayEvents.length - 3}</span>
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-slate-100">+{dayEvents.length - 3}</span>
                     ) : null}
                   </div>
                 </div>
@@ -688,19 +688,19 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                       title={ev.title}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="flex-1 truncate font-semibold text-slate-900">{ev.title}</span>
+                        <span className="flex-1 truncate font-semibold text-white">{ev.title}</span>
                         <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
                           {ev.type.replaceAll("_", " ").toLowerCase()}
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-slate-600">
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-slate-200">
                         <span className="truncate">{ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}</span>
                         {ev.type === "BILL_DUE" && ev.autopay ? (
                           <span className="shrink-0 rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">autopay</span>
                         ) : null}
                       </div>
                       {ev.source.kind === "return" && (ev.returnBy || ev.purchaseDate) ? (
-                        <div className="mt-1 text-[10px] text-slate-500">
+                        <div className="mt-1 text-[10px] text-slate-300">
                           {ev.purchaseDate ? `Purchased ${ev.purchaseDate}` : ""}{ev.purchaseDate && ev.returnBy ? " · " : ""}
                           {ev.returnBy ? `Return by ${ev.returnBy}` : ""}
                         </div>
@@ -708,7 +708,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                     </button>
                   ))}
                   {dayEvents.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 px-2 py-6 text-center text-[11px] text-slate-400">
+                    <div className="rounded-lg border border-dashed border-white/10 px-2 py-6 text-center text-[11px] text-slate-400">
                       Empty
                     </div>
                   ) : null}
@@ -721,35 +721,35 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
       <div className="space-y-4">
         {/* Upcoming */}
-      <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-lg">
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30">
         <div className="flex items-center justify-between">
-          <div className="text-base font-semibold text-slate-900">Upcoming</div>
-          <div className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
+          <div className="text-base font-semibold text-white">Upcoming</div>
+          <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
         </div>
         <div className="mt-3 space-y-3">
           {upcoming.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
+            <div className="rounded-xl border border-dashed border-white/10 bg-black/30 px-3 py-4 text-sm text-slate-300">
               Nothing scheduled. Add a bill, subscription, or return to see it here.
             </div>
           ) : (
               upcoming.map(ev => (
                 <button
                   key={ev.id}
-                  className={`w-full rounded-xl border px-3 py-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${cardClass(ev)}`}
+                  className={`w-full rounded-xl px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10 ${cardClass(ev)}`}
                   onClick={() => setSelected(ev)}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="truncate text-sm font-semibold text-slate-900">{ev.title}</div>
+                    <div className="truncate text-sm font-semibold text-white">{ev.title}</div>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
                       {ev.type.replaceAll("_", " ").toLowerCase()}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-xs text-slate-600">
+                  <div className="mt-1 flex items-center justify-between text-xs text-slate-200">
                     <span>
                       {ev.date} · {ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}
                     </span>
                     {ev.type === "BILL_DUE" && ev.autopay ? (
-                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
                         autopay
                       </span>
                     ) : null}
@@ -762,34 +762,34 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
         {/* Completed */}
         {completed.length > 0 ? (
-          <div className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-5 shadow-lg">
+          <div className="rounded-3xl border border-emerald-300/25 bg-emerald-500/10 p-5 shadow-xl shadow-emerald-500/20">
             <div className="flex items-center justify-between">
-              <div className="text-base font-semibold text-emerald-900">⭐ Completed this month</div>
-              <div className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white">{completed.length} items</div>
+              <div className="text-base font-semibold text-white">⭐ Completed this month</div>
+              <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-emerald-50">{completed.length} items</div>
             </div>
             <div className="mt-3 space-y-2">
               {completed.map(ev => (
                 <button
                   key={ev.id}
-                  className={`w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-left text-xs shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50`}
+                  className="w-full rounded-xl border border-emerald-300/30 bg-white/5 px-3 py-2 text-left text-xs shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200/60 hover:bg-white/10"
                   onClick={() => setSelected(ev)}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-semibold text-slate-900">{ev.title}</div>
+                    <div className="truncate font-semibold text-white">{ev.title}</div>
                     <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${pillClass(ev)}`}>
                       {ev.type.replaceAll("_", " ").toLowerCase()}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-600">
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-200">
                     <span>{ev.date}</span>
                     {ev.type === "BILL_DUE" && ev.autopay ? (
-                      <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
                         autopay
                       </span>
                     ) : null}
                   </div>
                     {ev.amountCents != null ? (
-                      <div className="text-[11px] text-slate-700">{formatMoney(ev.amountCents, ev.currency ?? "CAD")}</div>
+                      <div className="text-[11px] text-emerald-50">{formatMoney(ev.amountCents, ev.currency ?? "CAD")}</div>
                     ) : null}
                 </button>
               ))}
@@ -801,49 +801,49 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
       {/* Details drawer */}
       {selected ? (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-[420px] bg-white p-5 shadow-xl">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={() => setSelected(null)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-[420px] border-l border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-lg font-semibold">{selected.title}</div>
-                <div className="mt-1 text-sm opacity-70">
+                <div className="text-lg font-semibold text-white">{selected.title}</div>
+                <div className="mt-1 text-sm text-slate-300">
                   {selected.date} · {selected.type.replaceAll("_", " ").toLowerCase()}
                 </div>
               </div>
-              <button className="rounded-xl border px-3 py-1 text-sm" onClick={() => setSelected(null)}>
+              <button className="rounded-xl border border-white/15 bg-white/10 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => setSelected(null)}>
                 Close
               </button>
             </div>
 
             <div className="mt-6 space-y-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="opacity-70">Amount</span>
+                <span className="text-slate-400">Amount</span>
                 <span>
                   {selected.amountCents != null ? formatMoney(selected.amountCents, selected.currency ?? "CAD") : "—"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="opacity-70">Source</span>
-                <span className="capitalize">
+                <span className="text-slate-400">Source</span>
+                <span className="capitalize text-slate-100">
                   {selected.source.kind} · {selected.source.sourceId.slice(0, 8)}…
                 </span>
               </div>
             {selected.source.kind === "return" ? (
               <>
                 <div className="flex items-center justify-between">
-                  <span className="opacity-70">Purchase date</span>
-                  <span>{selected.purchaseDate ?? "Unknown"}</span>
+                  <span className="text-slate-400">Purchase date</span>
+                  <span className="text-slate-100">{selected.purchaseDate ?? "Unknown"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="opacity-70">Return by</span>
-                  <span>{selected.returnBy ?? "Potential return date not set"}</span>
+                  <span className="text-slate-400">Return by</span>
+                  <span className="text-slate-100">{selected.returnBy ?? "Potential return date not set"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="opacity-70">Tracking #</span>
-                  <span>{selected.trackingNumber && selected.trackingNumber.length ? selected.trackingNumber : "Not provided"}</span>
+                  <span className="text-slate-400">Tracking #</span>
+                  <span className="text-slate-100">{selected.trackingNumber && selected.trackingNumber.length ? selected.trackingNumber : "Not provided"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="opacity-70">Follow up</span>
+                  <span className="text-slate-400">Follow up</span>
                   <Link
                     className="pill-link"
                     href={`https://www.google.com/search?q=${encodeURIComponent((selected.title || "customer service") + " refund")}`}
@@ -859,35 +859,35 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
             {selected.type === "BILL_DUE" ? (
               <div className="mt-6 space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="opacity-70">Status</span>
-                  <span className="font-medium">{selected.billStatus ?? "DUE"}</span>
+                  <span className="text-slate-400">Status</span>
+                  <span className="font-medium text-slate-100">{selected.billStatus ?? "DUE"}</span>
                 </div>
                 {selected.autopay !== undefined ? (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="opacity-70">Autopay</span>
-                    <span className="font-medium">{selected.autopay ? "On" : "Off"}</span>
+                    <span className="text-slate-400">Autopay</span>
+                    <span className="font-medium text-slate-100">{selected.autopay ? "On" : "Off"}</span>
                   </div>
                 ) : null}
 
-                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-slate-900">Edit bill</div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-white">Edit bill</div>
                   <label className="block">
-                    <div className="text-xs opacity-70">Name</div>
+                    <div className="text-xs text-slate-400">Name</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.name} onChange={e => setBillEdit(v => ({ ...v, name: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <div className="text-xs text-slate-400">Amount (CAD)</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.amount} onChange={e => setBillEdit(v => ({ ...v, amount: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Due day</div>
+                    <div className="text-xs text-slate-400">Due day</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.dueDay} onChange={e => setBillEdit(v => ({ ...v, dueDay: e.target.value }))} />
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={billEdit.autopay} onChange={e => setBillEdit(v => ({ ...v, autopay: e.target.checked }))} />
                     <span>Autopay</span>
                   </label>
-                  <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveBillEdit}>
+                  <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveBillEdit}>
                     {editLoading ? "Saving…" : "Save bill"}
                   </button>
                 </div>
@@ -895,7 +895,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                 {selected.billStatus !== "PAID" ? (
                   <>
                     <label className="block text-sm">
-                      <div className="mb-1 opacity-70">Amount paid (optional override, CAD)</div>
+                      <div className="mb-1 text-slate-400">Amount paid (optional override, CAD)</div>
                       <input
                         className="w-full rounded-xl border px-3 py-2 text-sm"
                         placeholder="e.g. 120.50"
@@ -905,7 +905,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                     </label>
 
                     <label className="block text-sm">
-                      <div className="mb-1 opacity-70">Notes (optional)</div>
+                      <div className="mb-1 text-slate-400">Notes (optional)</div>
                       <input
                         className="w-full rounded-xl border px-3 py-2 text-sm"
                         placeholder="e.g. paid via autopay"
@@ -915,7 +915,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                     </label>
 
                     <button
-                      className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                      className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
                       disabled={payLoading}
                       onClick={() => markBill(selected, "PAID")}
                     >
@@ -924,7 +924,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
                   </>
                 ) : (
                   <button
-                    className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
                     disabled={payLoading}
                     onClick={() => markBill(selected, "DUE")}
                   >
@@ -935,26 +935,26 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
             ) : null}
             {selected.type === "RENEWAL" ? (
               <div className="mt-6 space-y-3">
-                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-slate-900">Edit subscription</div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-white">Edit subscription</div>
                   <label className="block">
-                    <div className="text-xs opacity-70">Name</div>
+                    <div className="text-xs text-slate-400">Name</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.name} onChange={e => setSubEdit(v => ({ ...v, name: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <div className="text-xs text-slate-400">Amount (CAD)</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.amount} onChange={e => setSubEdit(v => ({ ...v, amount: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Renewal date</div>
+                    <div className="text-xs text-slate-400">Renewal date</div>
                     <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.renewalDate} onChange={e => setSubEdit(v => ({ ...v, renewalDate: e.target.value }))} />
                   </label>
                   <div className="flex gap-2">
-                    <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveSubEdit}>
+                    <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveSubEdit}>
                       {editLoading ? "Saving…" : "Save"}
                     </button>
                     <button
-                      className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                      className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
                       disabled={payLoading}
                       onClick={() => cancelSubscription(selected)}
                     >
@@ -967,47 +967,47 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
             {selected.type === "RETURN_DEADLINE" ? (
               <div className="mt-6 space-y-3">
-                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-slate-900">Edit return</div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-white">Edit return</div>
                   <label className="block">
-                    <div className="text-xs opacity-70">Store</div>
+                    <div className="text-xs text-slate-400">Store</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.store} onChange={e => setReturnEdit(v => ({ ...v, store: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Item note</div>
+                    <div className="text-xs text-slate-400">Item note</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.itemNote} onChange={e => setReturnEdit(v => ({ ...v, itemNote: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <div className="text-xs text-slate-400">Amount (CAD)</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.amount} onChange={e => setReturnEdit(v => ({ ...v, amount: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Purchase date</div>
+                    <div className="text-xs text-slate-400">Purchase date</div>
                     <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.purchaseDate} onChange={e => setReturnEdit(v => ({ ...v, purchaseDate: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Return by</div>
+                    <div className="text-xs text-slate-400">Return by</div>
                     <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.returnBy} onChange={e => setReturnEdit(v => ({ ...v, returnBy: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Tracking # (optional)</div>
+                    <div className="text-xs text-slate-400">Tracking # (optional)</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.trackingNumber} onChange={e => setReturnEdit(v => ({ ...v, trackingNumber: e.target.value }))} />
                   </label>
-                  <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
+                  <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
                     {editLoading ? "Saving…" : "Save return"}
                   </button>
                 </div>
 
                 <div className="space-y-2">
                   <button
-                    className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60"
                     disabled={payLoading}
                     onClick={() => markDroppedOff(selected)}
                   >
                     {payLoading ? "Saving…" : "Mark Dropped Off"}
                   </button>
                   <button
-                    className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
                     disabled={payLoading}
                     onClick={() => markRefunded(selected)}
                   >
@@ -1019,7 +1019,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
 
             {selected.type === "REFUND_CHECK" ? (
               <button
-                className="mt-6 w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+                className="mt-6 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
                 disabled={payLoading}
                 onClick={() => markRefunded(selected)}
               >
@@ -1028,39 +1028,39 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
             ) : null}
             {selected.source.kind === "return" && selected.type !== "RETURN_DEADLINE" ? (
               <div className="mt-6 space-y-3">
-                <div className="rounded-xl border bg-slate-50 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-slate-900">Edit return</div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
+                  <div className="font-semibold text-white">Edit return</div>
                   <label className="block">
-                    <div className="text-xs opacity-70">Store</div>
+                    <div className="text-xs text-slate-400">Store</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.store} onChange={e => setReturnEdit(v => ({ ...v, store: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Item note</div>
+                    <div className="text-xs text-slate-400">Item note</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.itemNote} onChange={e => setReturnEdit(v => ({ ...v, itemNote: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Amount (CAD)</div>
+                    <div className="text-xs text-slate-400">Amount (CAD)</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.amount} onChange={e => setReturnEdit(v => ({ ...v, amount: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Purchase date</div>
+                    <div className="text-xs text-slate-400">Purchase date</div>
                     <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.purchaseDate} onChange={e => setReturnEdit(v => ({ ...v, purchaseDate: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Return by</div>
+                    <div className="text-xs text-slate-400">Return by</div>
                     <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.returnBy} onChange={e => setReturnEdit(v => ({ ...v, returnBy: e.target.value }))} />
                   </label>
                   <label className="block">
-                    <div className="text-xs opacity-70">Tracking # (optional)</div>
+                    <div className="text-xs text-slate-400">Tracking # (optional)</div>
                     <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.trackingNumber} onChange={e => setReturnEdit(v => ({ ...v, trackingNumber: e.target.value }))} />
                   </label>
-                  <button className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
+                  <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
                     {editLoading ? "Saving…" : "Save return"}
                   </button>
                 </div>
               </div>
             ) : null}
-            <div className="mt-8 text-sm opacity-70">
+            <div className="mt-8 text-sm text-slate-400">
               Next we’ll wire this drawer to real actions: mark cancelled, mark dropped off, mark refunded, edit dates.
             </div>
           </div>
@@ -1107,31 +1107,31 @@ function AddBillModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-xl">
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-lg font-semibold">Add Bill</div>
-            <div className="mt-1 text-sm opacity-70">Recurring monthly bill with paid tracking.</div>
+            <div className="text-lg font-semibold text-white">Add Bill</div>
+            <div className="mt-1 text-sm text-slate-400">Recurring monthly bill with paid tracking.</div>
           </div>
-          <button className="rounded-xl border px-3 py-1 text-sm" onClick={onClose}>
+          <button className="rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10" onClick={onClose}>
             Close
           </button>
         </div>
 
         <div className="mt-6 space-y-3">
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Name</div>
+            <div className="mb-1 text-slate-400">Name</div>
             <input className="w-full rounded-xl border px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Default amount (optional, CAD)</div>
+            <div className="mb-1 text-slate-400">Default amount (optional, CAD)</div>
             <input className="w-full rounded-xl border px-3 py-2 text-sm" placeholder="e.g. 2000.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Due day of month (1–31)</div>
+            <div className="mb-1 text-slate-400">Due day of month (1–31)</div>
             <input className="w-full rounded-xl border px-3 py-2 text-sm" value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
           </label>
 
@@ -1141,7 +1141,7 @@ function AddBillModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           </label>
 
           <button
-            className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+            className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
             disabled={saving || name.trim().length === 0}
             onClick={submit}
           >
@@ -1197,26 +1197,26 @@ function AddSubscriptionModal({
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-xl">
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-lg font-semibold">Add Subscription</div>
-            <div className="mt-1 text-sm opacity-70">Monthly renewal tracked on your calendar.</div>
+            <div className="text-lg font-semibold text-white">Add Subscription</div>
+            <div className="mt-1 text-sm text-slate-400">Monthly renewal tracked on your calendar.</div>
           </div>
-          <button className="rounded-xl border px-3 py-1 text-sm" onClick={onClose}>
+          <button className="rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10" onClick={onClose}>
             Close
           </button>
         </div>
 
         <div className="mt-6 space-y-3">
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Name</div>
+            <div className="mb-1 text-slate-400">Name</div>
             <input className="w-full rounded-xl border px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Amount (CAD)</div>
+            <div className="mb-1 text-slate-400">Amount (CAD)</div>
             <input
               className="w-full rounded-xl border px-3 py-2 text-sm"
               placeholder="e.g. 20.99"
@@ -1226,7 +1226,7 @@ function AddSubscriptionModal({
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Next renewal date</div>
+            <div className="mb-1 text-slate-400">Next renewal date</div>
             <input
               type="date"
               className="w-full rounded-xl border px-3 py-2 text-sm"
@@ -1236,7 +1236,7 @@ function AddSubscriptionModal({
           </label>
 
           <button
-            className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+            className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
             disabled={saving || !canSave}
             onClick={submit}
           >
@@ -1331,31 +1331,31 @@ function AddReturnModal({
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-xl">
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-lg font-semibold">Add Return</div>
-            <div className="mt-1 text-sm opacity-70">Track return-by and refund follow-ups.</div>
+            <div className="text-lg font-semibold text-white">Add Return</div>
+            <div className="mt-1 text-sm text-slate-400">Track return-by and refund follow-ups.</div>
           </div>
-          <button className="rounded-xl border px-3 py-1 text-sm" onClick={onClose}>
+          <button className="rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10" onClick={onClose}>
             Close
           </button>
         </div>
 
         <div className="mt-6 space-y-3">
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Store</div>
+            <div className="mb-1 text-slate-400">Store</div>
             <input className="w-full rounded-xl border px-3 py-2 text-sm" value={store} onChange={(e) => setStore(e.target.value)} />
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Item note (optional)</div>
+            <div className="mb-1 text-slate-400">Item note (optional)</div>
             <input className="w-full rounded-xl border px-3 py-2 text-sm" placeholder="e.g. Air Max" value={itemNote} onChange={(e) => setItemNote(e.target.value)} />
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Amount (optional, CAD)</div>
+            <div className="mb-1 text-slate-400">Amount (optional, CAD)</div>
             <input
               className="w-full rounded-xl border px-3 py-2 text-sm"
               placeholder="e.g. 185.00"
@@ -1365,7 +1365,7 @@ function AddReturnModal({
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Purchase date</div>
+            <div className="mb-1 text-slate-400">Purchase date</div>
             <input
               type="date"
               className="w-full rounded-xl border px-3 py-2 text-sm"
@@ -1375,7 +1375,7 @@ function AddReturnModal({
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Return window days (default 30)</div>
+            <div className="mb-1 text-slate-400">Return window days (default 30)</div>
             <input
               className="w-full rounded-xl border px-3 py-2 text-sm"
               value={returnWindowDays}
@@ -1384,7 +1384,7 @@ function AddReturnModal({
           </label>
 
           <label className="block text-sm">
-            <div className="mb-1 opacity-70">Return by (manual)</div>
+            <div className="mb-1 text-slate-400">Return by (manual)</div>
             <input
               type="date"
               className="w-full rounded-xl border px-3 py-2 text-sm"
@@ -1397,7 +1397,7 @@ function AddReturnModal({
           </label>
 
           <button
-            className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
+            className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
             disabled={saving || !canSave}
             onClick={submit}
           >

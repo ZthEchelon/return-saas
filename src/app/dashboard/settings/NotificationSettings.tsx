@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { useState } from "react";
+import Link from "next/link";
 
 type Pref = {
   emailDigestEnabled: boolean;
@@ -22,6 +23,7 @@ export default function NotificationSettings() {
   const pref: Pref | undefined = data?.preference;
 
   const [saving, setSaving] = useState(false);
+  const [demoStatus, setDemoStatus] = useState<"idle" | "running" | "done" | "error">("idle");
 
   async function save() {
     if (!pref) return;
@@ -47,90 +49,229 @@ export default function NotificationSettings() {
     );
   }
 
-  if (isLoading) return <div className="rounded-2xl border bg-white/80 p-4 text-sm text-slate-600">Loading…</div>;
-  if (error || !pref) return <div className="rounded-2xl border bg-rose-50 p-4 text-sm text-rose-700">Failed to load settings.</div>;
+  function applyQuickLeadDays(days: number) {
+    if (!pref) return;
+    update("subLeadDays", days);
+    update("returnLeadDays", days);
+    update("billLeadDays", days);
+  }
+
+  async function generateDemoJobs() {
+    setDemoStatus("running");
+    try {
+      const res = await fetch("/api/dev/seed", { method: "POST" });
+      if (!res.ok) throw new Error("Seed failed");
+      setDemoStatus("done");
+    } catch (err) {
+      console.error(err);
+      setDemoStatus("error");
+    }
+  }
+
+  if (isLoading) return <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">Loading…</div>;
+  if (error || !pref) return <div className="rounded-2xl border border-rose-200/40 bg-rose-500/10 p-4 text-sm text-rose-50">Failed to load settings.</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border bg-white/80 p-4 shadow-sm space-y-3">
-        <div className="text-sm font-semibold text-slate-900">Email digest</div>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={pref.emailDigestEnabled}
-            onChange={(e) => update("emailDigestEnabled", e.target.checked)}
-          />
-          <span>Send daily digest</span>
-        </label>
-        <label className="block text-sm">
-          <div className="mb-1 text-slate-600">Hour of day (local time)</div>
-          <input
-            type="number"
-            min={0}
-            max={23}
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            value={pref.digestHourLocal}
-            onChange={(e) => update("digestHourLocal", Number(e.target.value))}
-          />
-        </label>
-        <label className="block text-sm">
-          <div className="mb-1 text-slate-600">Primary email</div>
-          <input
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            value={pref.primaryEmail ?? ""}
-            onChange={(e) => update("primaryEmail", e.target.value)}
-            placeholder="you@example.com"
-          />
-        </label>
+    <div className="space-y-5">
+      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-100">Weekly digest</p>
+              <p className="text-lg font-semibold text-white">Bundle reminders into one beautiful email.</p>
+              <p className="text-sm text-slate-300">Lead times, upcoming renewals, and returns in a single digest.</p>
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={pref.emailDigestEnabled}
+                onChange={(e) => update("emailDigestEnabled", e.target.checked)}
+              />
+              <span>{pref.emailDigestEnabled ? "On" : "Off"}</span>
+            </label>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="block text-sm">
+              <div className="mb-1 text-slate-300">Send digest at (local time)</div>
+              <input
+                type="number"
+                min={0}
+                max={23}
+                className="w-full rounded-xl border px-3 py-2 text-sm"
+                value={pref.digestHourLocal}
+                onChange={(e) => update("digestHourLocal", Number(e.target.value))}
+              />
+            </label>
+            <label className="block text-sm">
+              <div className="mb-1 text-slate-300">Primary email</div>
+              <input
+                className="w-full rounded-xl border px-3 py-2 text-sm"
+                value={pref.primaryEmail ?? ""}
+                onChange={(e) => update("primaryEmail", e.target.value)}
+                placeholder="you@example.com"
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white">Digest preview</p>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-emerald-100">Sample</span>
+            </div>
+            <div className="mt-3 space-y-2 text-sm text-slate-200">
+              <div className="flex items-center justify-between">
+                <span>Return by Jan 18 — 4 days left</span>
+                <span className="rounded-full bg-cyan-500/20 px-2 py-1 text-[11px] text-cyan-50">Return</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Adobe CC · Renews in 3 days</span>
+                <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-50">Subscription</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Spotify · Renews Jan 22</span>
+                <span className="rounded-full bg-indigo-500/20 px-2 py-1 text-[11px] text-indigo-50">Autopay</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Appearance</p>
+              <p className="text-sm text-slate-200">Light/dark + motion preference (UI only).</p>
+            </div>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white">UI</span>
+          </div>
+          <div className="space-y-2 text-sm text-slate-100">
+            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+              <span>Theme</span>
+              <div className="flex items-center gap-2">
+                {["dark", "light"].map(theme => (
+                  <button
+                    key={theme}
+                    onClick={() => {}}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      theme === "dark" ? "bg-white/15 text-white" : "bg-white/5 text-slate-300"
+                    }`}
+                  >
+                    {theme}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+              <span>Reduced motion</span>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-100">
+                <input type="checkbox" />
+                Respect system
+              </label>
+            </div>
+            <Link href="/dashboard" className="text-[11px] font-semibold text-cyan-100 hover:text-white">
+              Appearance controls are UI-only for now.
+            </Link>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-2xl border bg-white/80 p-4 shadow-sm space-y-3">
-        <div className="text-sm font-semibold text-slate-900">Lead days</div>
-        <div className="text-xs text-slate-500">How many days before to get reminders.</div>
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-100">Reminder lead times</p>
+            <p className="text-lg font-semibold text-white">Choose when to nudge before deadlines.</p>
+            <p className="text-sm text-slate-300">Subscriptions, returns, and bills share the cadence.</p>
+          </div>
+          <div className="hidden md:flex gap-2">
+            {[1, 3, 7, 14].map((d) => (
+              <button
+                key={d}
+                onClick={() => applyQuickLeadDays(d)}
+                className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10"
+              >
+                {d} day{d === 1 ? "" : "s"}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <label className="block text-sm">
-          <div className="mb-1 text-slate-600">Subscriptions</div>
-          <input
-            type="number"
-            min={0}
-            max={31}
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            value={pref.subLeadDays}
-            onChange={(e) => update("subLeadDays", Number(e.target.value))}
-          />
-        </label>
-        <label className="block text-sm">
-          <div className="mb-1 text-slate-600">Returns</div>
-          <input
-            type="number"
-            min={0}
-            max={31}
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            value={pref.returnLeadDays}
-            onChange={(e) => update("returnLeadDays", Number(e.target.value))}
-          />
-        </label>
-        <label className="block text-sm">
-          <div className="mb-1 text-slate-600">Bills</div>
-          <input
-            type="number"
-            min={0}
-            max={31}
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            value={pref.billLeadDays}
-            onChange={(e) => update("billLeadDays", Number(e.target.value))}
-          />
-        </label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block text-sm">
+            <div className="mb-1 text-slate-300">Subscriptions</div>
+            <input
+              type="number"
+              min={0}
+              max={31}
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+              value={pref.subLeadDays}
+              onChange={(e) => update("subLeadDays", Number(e.target.value))}
+            />
+          </label>
+          <label className="block text-sm">
+            <div className="mb-1 text-slate-300">Returns</div>
+            <input
+              type="number"
+              min={0}
+              max={31}
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+              value={pref.returnLeadDays}
+              onChange={(e) => update("returnLeadDays", Number(e.target.value))}
+            />
+          </label>
+          <label className="block text-sm">
+            <div className="mb-1 text-slate-300">Bills</div>
+            <input
+              type="number"
+              min={0}
+              max={31}
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+              value={pref.billLeadDays}
+              onChange={(e) => update("billLeadDays", Number(e.target.value))}
+            />
+          </label>
+        </div>
+        <div className="md:hidden flex flex-wrap gap-2">
+          {[1, 3, 7, 14].map((d) => (
+            <button
+              key={d}
+              onClick={() => applyQuickLeadDays(d)}
+              className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10"
+            >
+              {d} day{d === 1 ? "" : "s"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex justify-end">
-        <button
-          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
-          onClick={save}
-          disabled={saving}
-        >
-          {saving ? "Saving…" : "Save settings"}
-        </button>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 space-y-2 lg:col-span-2">
+          <div className="text-sm font-semibold text-white">Demo mode</div>
+          <p className="text-sm text-slate-300">Generate sample notification jobs for the next 7 days.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={generateDemoJobs}
+              disabled={demoStatus === "running"}
+              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
+            >
+              {demoStatus === "running" ? "Generating…" : "Generate Demo Jobs"}
+            </button>
+            {demoStatus === "done" && <span className="text-xs font-semibold text-emerald-100">Demo jobs created.</span>}
+            {demoStatus === "error" && <span className="text-xs font-semibold text-rose-100">Demo job creation failed.</span>}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 space-y-2">
+          <div className="text-sm font-semibold text-white">Save changes</div>
+          <p className="text-sm text-slate-300">Persist your preferences to start using them right away.</p>
+          <button
+            className="mt-2 w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
+            onClick={save}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "Save settings"}
+          </button>
+        </div>
       </div>
     </div>
   );

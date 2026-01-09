@@ -2,126 +2,145 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/events";
+import ReturnsBoard from "./ui/ReturnsBoard";
+
+type ReturnRow = {
+  id: string;
+  store: string;
+  itemNote: string | null;
+  amountCents: number | null;
+  currency: string;
+  purchaseDate: Date;
+  returnBy: Date;
+  returnWindowDays: number;
+  refundAmountCents: number | null;
+  refundExpectedBy: Date | null;
+  refundedDate: Date | null;
+  status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+  dropoffDate: Date | null;
+  trackingNumber: string | null;
+};
 
 export default async function ReturnsPage() {
   const { userId } = await auth();
-  if (!userId) return <div>Unauthorized</div>;
-
-  type ReturnRow = {
-    id: string;
-    store: string;
-    itemNote: string | null;
-    amountCents: number | null;
-    currency: string;
-    purchaseDate: Date;
-    returnBy: Date;
-    refundAmountCents: number | null;
-    status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
-  };
+  if (!userId) return <div className="text-slate-200">Unauthorized</div>;
 
   const returns: ReturnRow[] = await prisma.returnItem.findMany({
     where: { userId },
-    orderBy: { returnBy: "desc" },
+    orderBy: { returnBy: "asc" },
+    select: {
+      id: true,
+      store: true,
+      itemNote: true,
+      amountCents: true,
+      currency: true,
+      purchaseDate: true,
+      returnBy: true,
+      returnWindowDays: true,
+      refundAmountCents: true,
+      refundExpectedBy: true,
+      refundedDate: true,
+      status: true,
+      dropoffDate: true,
+      trackingNumber: true,
+    },
   });
 
   const stats = {
     total: returns.length,
-    refunded: returns.filter((r: ReturnRow) => r.status === "REFUNDED").length,
-    inProgress: returns.filter((r: ReturnRow) => r.status !== "REFUNDED").length,
+    refunded: returns.filter(r => r.status === "REFUNDED").length,
+    inProgress: returns.filter(r => r.status !== "REFUNDED").length,
     totalRefunded: returns
-      .filter((r: ReturnRow) => r.status === "REFUNDED")
+      .filter(r => r.status === "REFUNDED")
       .reduce((sum, r) => sum + (r.refundAmountCents ?? 0), 0),
+    potentialRefunds: returns
+      .filter(r => r.status !== "REFUNDED")
+      .reduce((sum, r) => sum + (r.amountCents ?? 0), 0),
   };
 
-  const statusColors: Record<string, string> = {
-    NOT_STARTED: "bg-slate-100 text-slate-700",
-    PACKED: "bg-amber-100 text-amber-700",
-    DROPPED_OFF: "bg-blue-100 text-blue-700",
-    REFUNDED: "bg-emerald-100 text-emerald-700",
-  };
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now();
 
-  const statusIcons: Record<string, string> = {
-    NOT_STARTED: "📋",
-    PACKED: "📦",
-    DROPPED_OFF: "🚚",
-    REFUNDED: "✅",
-  };
+  const focusReturns = returns
+    .filter(r => r.status !== "REFUNDED")
+    .sort((a, b) => a.returnBy.getTime() - b.returnBy.getTime())
+    .slice(0, 2);
+
+  const serialized = returns.map(r => ({
+    ...r,
+    purchaseDate: r.purchaseDate.toISOString(),
+    returnBy: r.returnBy.toISOString(),
+    refundExpectedBy: r.refundExpectedBy ? r.refundExpectedBy.toISOString() : null,
+    refundedDate: r.refundedDate ? r.refundedDate.toISOString() : null,
+    dropoffDate: r.dropoffDate ? r.dropoffDate.toISOString() : null,
+  }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Returns</h1>
-        <p className="mt-1 text-slate-600">Track your return status and refunds</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold text-slate-500">Total Returns</p>
-          <p className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</p>
+    <div className="space-y-8">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-[#0b1220] p-6 shadow-2xl shadow-black/50">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-20 top-6 h-56 w-56 rounded-full bg-cyan-500/20 blur-[120px]" />
+          <div className="absolute right-[-60px] top-12 h-56 w-56 rounded-full bg-emerald-400/18 blur-[120px]" />
         </div>
-        <div className="rounded-xl border bg-emerald-50 p-4 shadow-sm border-emerald-200">
-          <p className="text-xs font-semibold text-emerald-700">Refunded</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-900">{stats.refunded}</p>
-        </div>
-        <div className="rounded-xl border bg-amber-50 p-4 shadow-sm border-amber-200">
-          <p className="text-xs font-semibold text-amber-700">In Progress</p>
-          <p className="mt-2 text-2xl font-bold text-amber-900">{stats.inProgress}</p>
-        </div>
-        <div className="rounded-xl border bg-green-50 p-4 shadow-sm border-green-200">
-          <p className="text-xs font-semibold text-green-700">Total Refunded</p>
-          <p className="mt-2 text-2xl font-bold text-green-900">
-            {formatMoney(stats.totalRefunded, "CAD")}
-          </p>
-        </div>
-      </div>
-
-      {/* Returns List */}
-      {returns.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
-          <p className="text-slate-600">No returns yet</p>
-          <Link href="/dashboard/calendar" className="mt-4 inline-block text-sm font-medium text-blue-600 hover:underline">
-            Go to Calendar to add a return
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {returns.map(ret => (
-            <Link key={ret.id} href={`/dashboard/returns/${ret.id}`} className="flex items-center justify-between rounded-xl border bg-white p-4 hover:border-slate-300 transition">
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{statusIcons[ret.status]}</span>
-                  <div>
-                    <p className="font-semibold text-slate-900">{ret.store}</p>
-                    <p className="text-xs text-slate-500">
-                      Purchased {ret.purchaseDate.toLocaleDateString("en-CA")} · Return by {ret.returnBy.toLocaleDateString("en-CA")}
-                    </p>
-                    {ret.itemNote && (
-                      <p className="mt-1 text-xs text-slate-600">{ret.itemNote}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="font-semibold text-slate-900">
-                    {formatMoney(ret.amountCents ?? 0, ret.currency)}
-                  </p>
-                  {ret.refundAmountCents && ret.status === "REFUNDED" && (
-                    <p className="text-xs text-green-600">
-                      ✓ {formatMoney(ret.refundAmountCents, ret.currency)} refunded
-                    </p>
-                  )}
-                </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${statusColors[ret.status]}`}>
-                  {ret.status.replaceAll("_", " ")}
-                </span>
-              </div>
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-100">Returns HQ</p>
+            <h1 className="font-display text-4xl text-white">Deadline clarity with delightful status shifts.</h1>
+            <p className="max-w-3xl text-sm text-slate-200/80">
+              Data-dense list, timeline cards, and buttery transitions from NOT_STARTED → RETURNED → REFUNDED. Quick mark buttons keep you in flow.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full bg-white/10 px-3 py-1 font-semibold text-white">Timeline view</span>
+            <Link href="/dashboard/calendar" className="pill-link">
+              Calendar
             </Link>
-          ))}
+            <Link href="/dashboard/settings" className="pill-link">
+              Lead times
+            </Link>
+          </div>
         </div>
-      )}
+
+        <div className="relative mt-4 grid gap-3 md:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Total returns</p>
+            <p className="mt-1 font-display text-2xl text-white">{stats.total}</p>
+            <p className="text-xs text-slate-400">{stats.inProgress} active</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-400/15 to-emerald-500/10 p-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-100">Refunded</p>
+            <p className="mt-1 font-display text-2xl text-white">{stats.refunded}</p>
+            <p className="text-xs text-emerald-100">Received {formatMoney(stats.totalRefunded, "CAD")}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/20 to-emerald-500/10 p-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-100">Potential refunds</p>
+            <p className="mt-1 font-display text-2xl text-white">{formatMoney(stats.potentialRefunds, "CAD")}</p>
+            <p className="text-xs text-cyan-100">Across active items</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Focus</p>
+            {focusReturns.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-300">No urgent returns. Add your next deadline.</p>
+            ) : (
+              <div className="mt-1 space-y-1">
+                {focusReturns.map(item => {
+                  const daysLeft = Math.max(0, Math.ceil((item.returnBy.getTime() - nowMs) / (1000 * 60 * 60 * 24)));
+                  return (
+                    <div key={item.id} className="flex items-center justify-between text-sm text-white">
+                      <span className="truncate">{item.store}</span>
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-emerald-100">
+                        {daysLeft}d
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <ReturnsBoard items={serialized} stats={stats} />
     </div>
   );
 }
