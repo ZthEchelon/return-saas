@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { Prisma } from "@prisma/client";
 import { getAuthedGmail } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/parser";
@@ -99,7 +98,7 @@ export async function POST(req: Request) {
           orderId: purchase!.orderId ?? null,
           totalCents: purchase!.totalCents ?? null,
           currency: (purchase!.currency ?? "CAD").toUpperCase(),
-          items: purchase!.items ? (purchase!.items as unknown as Prisma.InputJsonValue) : undefined,
+          items: purchase!.items ?? undefined,
           rawSource: purchase!.rawSource,
           parserError,
         },
@@ -111,7 +110,7 @@ export async function POST(req: Request) {
           orderId: purchase!.orderId ?? null,
           totalCents: purchase!.totalCents ?? null,
           currency: (purchase!.currency ?? "CAD").toUpperCase(),
-          items: purchase!.items ? (purchase!.items as unknown as Prisma.InputJsonValue) : undefined,
+          items: purchase!.items ?? undefined,
           rawSource: purchase!.rawSource,
           parserError,
         },
@@ -210,7 +209,7 @@ export async function POST(req: Request) {
           confidence: "MEDIUM",
           reasons: [`Built from transaction (${tx.rawSource})`],
           messageIds: [id],
-          draft: draft as Prisma.InputJsonValue,
+          draft: draft as any,
         },
       });
 
