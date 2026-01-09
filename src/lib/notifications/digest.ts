@@ -49,7 +49,7 @@ export async function buildDigestForUser(userId: string, now: Date, tz = "Americ
 
   return {
     dateLocal,
-    notificationIds: notifs.map(n => n.id),
+    notificationIds: notifs.map((n: Notif) => n.id),
     digest: { subject, counts, sections },
   };
 }
