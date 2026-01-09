@@ -7,13 +7,16 @@ import ReturnTransactionHistory from "@/app/dashboard/returns/ui/ReturnTransacti
 export default async function ReturnDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) return <div>Unauthorized</div>;
 
+  const { id } = await params;
+  if (!id) notFound();
+
   const ret = await prisma.returnItem.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!ret || ret.userId !== userId) {
