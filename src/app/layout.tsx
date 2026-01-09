@@ -12,6 +12,8 @@ import {
 } from "@clerk/nextjs";
 import "./globals.css";
 import NotificationsBadgeServer from "./ui/NotificationsBadgeServer";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -93,6 +95,8 @@ export default function RootLayout({
           </nav>
         </header>
         <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
     </ClerkProvider>
