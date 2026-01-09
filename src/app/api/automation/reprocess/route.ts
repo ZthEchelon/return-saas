@@ -3,7 +3,6 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthedGmail } from "@/lib/gmail";
 import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/parser";
-import { Prisma } from "@prisma/client";
 
 /**
  * Reprocess all Gmail receipts with pagination and progress tracking
@@ -92,7 +91,7 @@ export async function POST(req: NextRequest) {
           orderId: purchase.orderId ?? null,
           totalCents: purchase.totalCents ?? null,
           currency: (purchase.currency ?? "CAD").toUpperCase(),
-          items: purchase.items ? (purchase.items as unknown as Prisma.InputJsonValue) : undefined,
+          items: purchase.items ?? undefined,
           rawSource: purchase.rawSource,
           parserError,
         },
