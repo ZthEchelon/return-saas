@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/domainScheduler";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       refundAmountCents: refundAmountCents ?? item.refundAmountCents ?? null,
     },
   });
+
+  await scheduleReturnDeadlineSoon({
+    userId,
+    returnId: updated.id,
+    store: updated.store,
+    itemNote: updated.itemNote,
+    returnBy: updated.returnBy,
+    amountCents: updated.amountCents,
+    currency: updated.currency,
+    status: updated.status,
+  });
+
+  await scheduleRefundChecks({
+    userId,
+    returnId: updated.id,
+    store: updated.store,
+    dropoffDate: updated.dropoffDate,
+    refundedDate: updated.refundedDate,
+  });
+
+  if (updated.refundExpectedBy) {
+    await scheduleRefundOverdueOnce({
+      userId,
+      returnId: updated.id,
+      store: updated.store,
+      refundExpectedBy: updated.refundExpectedBy ?? null,
+      refundedDate: updated.refundedDate,
+    });
+  }
 
   return NextResponse.json({ ok: true, returnItem: updated });
 }

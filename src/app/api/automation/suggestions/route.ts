@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { scheduleBillDueSoon, scheduleReturnDeadlineSoon, scheduleSubscriptionRenewalSoon } from "@/lib/notifications/domainScheduler";
 
 export const runtime = "nodejs";
 
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
     if (returnByStr) returnBy = isoDateOnlyToUTC(returnByStr);
     else returnBy = addDaysUTC(purchaseDate, windowDays);
 
-    await prisma.returnItem.create({
+    const createdReturn = await prisma.returnItem.create({
       data: {
         userId,
         store: merchant,
@@ -113,6 +114,17 @@ export async function POST(req: Request) {
         refundAmountCents: null,
       },
     });
+
+    await scheduleReturnDeadlineSoon({
+      userId,
+      returnId: createdReturn.id,
+      store: createdReturn.store,
+      itemNote: createdReturn.itemNote,
+      returnBy: createdReturn.returnBy,
+      amountCents: createdReturn.amountCents,
+      currency: createdReturn.currency,
+      status: createdReturn.status,
+    });
   }
 
   if (type === "SUBSCRIPTION") {
@@ -126,7 +138,7 @@ export async function POST(req: Request) {
     const cadence: "MONTHLY" | "YEARLY" | "CUSTOM" =
       cadenceRaw === "YEARLY" || cadenceRaw === "CUSTOM" ? (cadenceRaw as typeof cadence) : "MONTHLY";
 
-    await prisma.subscription.create({
+    const createdSub = await prisma.subscription.create({
       data: {
         userId,
         name: merchant,
@@ -137,6 +149,15 @@ export async function POST(req: Request) {
         status: "ACTIVE",
       },
     });
+
+    await scheduleSubscriptionRenewalSoon({
+      userId,
+      subscriptionId: createdSub.id,
+      name: createdSub.name,
+      renewalDate: createdSub.renewalDate,
+      amountCents: createdSub.amountCents,
+      currency: createdSub.currency,
+    });
   }
 
   if (type === "BILL") {
@@ -144,7 +165,7 @@ export async function POST(req: Request) {
       ? Math.min(28, Math.max(1, Number(mergedDraft.dueDayOfMonth)))
       : 1;
 
-    await prisma.bill.create({
+    const createdBill = await prisma.bill.create({
       data: {
         userId,
         name: merchant,
@@ -154,6 +175,15 @@ export async function POST(req: Request) {
         autopay: Boolean(mergedDraft.autopay ?? false),
         status: "ACTIVE",
       },
+    });
+
+    await scheduleBillDueSoon({
+      userId,
+      billId: createdBill.id,
+      name: createdBill.name,
+      dueDayOfMonth: createdBill.dueDayOfMonth,
+      amountCents: createdBill.amountCents,
+      currency: createdBill.currency,
     });
   }
 

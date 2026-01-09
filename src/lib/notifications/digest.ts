@@ -1,127 +1,54 @@
 import { prisma } from "@/lib/prisma";
-import { toISODateOnlyUTC } from "@/lib/events";
+import { DateTime } from "luxon";
 
-type DigestItem = {
-  title: string;
-  date: string;
-  amount?: string;
-  link?: string;
-};
-
-export type DigestResult = {
-  subject: string;
-  counts: { returns: number; bills: number; subs: number; overdue: number };
-  sections: {
-    returns: DigestItem[];
-    bills: DigestItem[];
-    subs: DigestItem[];
-    newSuggestions?: DigestItem[];
-  };
-};
-
-function formatMoney(amountCents?: number | null, currency = "CAD") {
-  if (amountCents == null) return "";
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency, maximumFractionDigits: 2 }).format(amountCents / 100);
+function iso(d?: Date | null) {
+  return d ? d.toISOString().slice(0, 10) : "date unknown";
 }
 
-function todayInTz(tz: string) {
-  const now = new Date();
-  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
-  const parts = fmt.formatToParts(now);
-  const y = Number(parts.find(p => p.type === "year")?.value);
-  const m = Number(parts.find(p => p.type === "month")?.value);
-  const d = Number(parts.find(p => p.type === "day")?.value);
-  return new Date(Date.UTC(y, m - 1, d));
-}
+export async function buildDigestForUser(userId: string, now: Date, tz = "America/Toronto") {
+  const startLocal = DateTime.fromJSDate(now, { zone: tz }).startOf("day");
+  const endLocal = startLocal.plus({ days: 1 });
 
-function addDaysUTC(d: Date, days: number) {
-  const out = new Date(d.getTime());
-  out.setUTCDate(out.getUTCDate() + days);
-  return out;
-}
+  const startUtc = startLocal.toUTC().toJSDate();
+  const endUtc = endLocal.toUTC().toJSDate();
+  const dateLocal = startLocal.toISODate()!;
 
-export async function buildDigestForUser(userId: string, now: Date) {
-  const pref = await prisma.notificationPreference.upsert({
-    where: { userId },
-    create: { userId },
-    update: {},
-  });
-  if (!pref.emailDigestEnabled) return null;
-
-  const tz = pref.timezone ?? "America/Toronto";
-  const todayLocal = todayInTz(tz);
-  const windowEnd = addDaysUTC(todayLocal, pref.windowDays ?? 14);
-
-  const [returns, bills, subs] = await Promise.all([
-    prisma.returnItem.findMany({
-      where: {
-        userId,
-        status: { not: "REFUNDED" },
-        returnBy: { lte: windowEnd },
-      },
-      select: { id: true, store: true, itemNote: true, returnBy: true, amountCents: true, currency: true },
-      orderBy: { returnBy: "asc" },
-    }),
-    prisma.bill.findMany({
-      where: { userId, status: { not: "PAUSED" } },
-      select: { id: true, name: true, amountCents: true, currency: true, dueDayOfMonth: true },
-    }),
-    prisma.subscription.findMany({
-      where: { userId, status: "ACTIVE", renewalDate: { lte: windowEnd } },
-      select: { id: true, name: true, amountCents: true, currency: true, renewalDate: true },
-      orderBy: { renewalDate: "asc" },
-    }),
-  ]);
-
-  // Build bill occurrences within window
-  const billsWithin: DigestItem[] = [];
-  const y0 = todayLocal.getUTCFullYear();
-  const m0 = todayLocal.getUTCMonth();
-  const m1 = windowEnd.getUTCMonth();
-  for (const b of bills) {
-    for (let m = m0; m <= m1; m++) {
-      const due = new Date(Date.UTC(y0, m, Math.min(b.dueDayOfMonth, new Date(Date.UTC(y0, m + 1, 0)).getUTCDate())));
-      if (due >= todayLocal && due <= windowEnd) {
-        billsWithin.push({
-          title: b.name,
-          date: toISODateOnlyUTC(due),
-          amount: formatMoney(b.amountCents, b.currency),
-          link: "/dashboard/calendar",
-        });
-      }
-    }
-  }
-
-  const returnItems: DigestItem[] = returns.map(r => ({
-    title: `${r.store}${r.itemNote ? ` — ${r.itemNote}` : ""}`,
-    date: toISODateOnlyUTC(r.returnBy),
-    amount: formatMoney(r.amountCents, r.currency),
-    link: "/dashboard/calendar",
-  }));
-
-  const subItems: DigestItem[] = subs.map(s => ({
-    title: s.name,
-    date: toISODateOnlyUTC(s.renewalDate),
-    amount: formatMoney(s.amountCents, s.currency),
-    link: "/dashboard/calendar",
-  }));
-
-  const overdueCount =
-    returnItems.filter(i => i.date < toISODateOnlyUTC(todayLocal)).length +
-    billsWithin.filter(i => i.date < toISODateOnlyUTC(todayLocal)).length +
-    subItems.filter(i => i.date < toISODateOnlyUTC(todayLocal)).length;
-
-  const subject = `Your digest: ${returnItems.length} returns · ${billsWithin.length} bills · ${subItems.length} subs`;
-
-  const result: DigestResult = {
-    subject,
-    counts: { returns: returnItems.length, bills: billsWithin.length, subs: subItems.length, overdue: overdueCount },
-    sections: {
-      returns: returnItems,
-      bills: billsWithin,
-      subs: subItems,
+  const notifs = await prisma.notification.findMany({
+    where: {
+      userId,
+      dismissedAt: null,
+      emailedAt: null, // ✅ consume gate
+      scheduledFor: { gte: startUtc, lt: endUtc },
     },
+    select: { id: true, type: true, title: true, body: true, eventDate: true },
+    orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }],
+  });
+
+  if (!notifs.length) return null;
+
+  const returns = notifs.filter(n => ["RETURN_DEADLINE_SOON", "REFUND_CHECK_DUE", "REFUND_OVERDUE"].includes(n.type));
+  const bills = notifs.filter(n => n.type === "BILL_DUE_SOON");
+  const subs = notifs.filter(n => n.type === "SUBSCRIPTION_RENEWAL_SOON");
+  const overdue = notifs.filter(n => n.type === "REFUND_OVERDUE").length;
+
+  const sections = {
+    returns: returns.map(n => ({ title: n.title, date: n.body ?? iso(n.eventDate), link: "/dashboard/calendar" })),
+    bills: bills.map(n => ({ title: n.title, date: n.body ?? iso(n.eventDate), link: "/dashboard/calendar" })),
+    subs: subs.map(n => ({ title: n.title, date: n.body ?? iso(n.eventDate), link: "/dashboard/calendar" })),
   };
 
-  return { digest: result, dateLocal: toISODateOnlyUTC(todayLocal) };
+  const counts = {
+    returns: sections.returns.length,
+    bills: sections.bills.length,
+    subs: sections.subs.length,
+    overdue,
+  };
+
+  const subject = `Your digest: ${counts.returns} returns · ${counts.bills} bills · ${counts.subs} subs`;
+
+  return {
+    dateLocal,
+    notificationIds: notifs.map(n => n.id),
+    digest: { subject, counts, sections },
+  };
 }

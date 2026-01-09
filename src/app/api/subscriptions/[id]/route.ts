@@ -2,12 +2,16 @@
 import { NextResponse, NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/domainScheduler";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
   const { id } = await params;
+
+  const existing = await prisma.subscription.findFirst({ where: { id, userId } });
+  if (!existing) return new NextResponse("Not found", { status: 404 });
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -40,8 +44,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.renewalDate = rd;
   }
 
-  const updated = await prisma.subscription.updateMany({ where: { id, userId }, data });
-  if (updated.count === 0) return new NextResponse("Not found", { status: 404 });
+  const updated = await prisma.subscription.update({
+    where: { id },
+    data,
+  });
+
+  if (updated.status === "ACTIVE") {
+    await scheduleSubscriptionRenewalSoon({
+      userId,
+      subscriptionId: updated.id,
+      name: updated.name,
+      renewalDate: updated.renewalDate,
+      amountCents: updated.amountCents,
+      currency: updated.currency,
+    });
+  } else {
+    await prisma.notification.updateMany({
+      where: { userId, sourceKind: "subscription", sourceId: updated.id, dismissedAt: null },
+      data: { dismissedAt: new Date() },
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

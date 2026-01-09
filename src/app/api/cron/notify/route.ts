@@ -1,14 +1,24 @@
-//cron generate notifcations daily
+// cron reconcile/backfill: re-run scheduler functions for upcoming window
+// safe to run daily; scheduler functions handle deduplication via eventKey
 
 import { NextResponse } from "next/server";
-import { NotificationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  scheduleSubscriptionRenewalSoon,
+  scheduleReturnDeadlineSoon,
+  scheduleRefundChecks,
+  scheduleRefundOverdueOnce,
+  scheduleBillDueSoon,
+} from "@/lib/notifications/domainScheduler";
 
 export const runtime = "nodejs";
 
-const SUB_LEAD_DAYS = 3;    // “renewals coming up to cancel”
-const RETURN_LEAD_DAYS = 2;
-const BILL_LEAD_DAYS = 2;
+function mustBeCron(req: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return;
+  const got = req.headers.get("x-cron-secret");
+  if (got !== secret) throw new Error("Forbidden");
+}
 
 function startOfDayUTC(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -18,238 +28,106 @@ function addDaysUTC(d: Date, days: number) {
   out.setUTCDate(out.getUTCDate() + days);
   return out;
 }
-function isoDateOnly(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-function clampDayToMonth(year: number, monthZero: number, day: number) {
-  const lastDay = new Date(Date.UTC(year, monthZero + 1, 0)).getUTCDate();
-  return Math.min(day, lastDay);
-}
 
 export async function POST(req: Request) {
-  // Optional protection: set CRON_SECRET in env for prod
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const got = req.headers.get("x-cron-secret");
-    if (got !== secret) return new NextResponse("Forbidden", { status: 403 });
+  try {
+    mustBeCron(req);
+  } catch {
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const today = startOfDayUTC(new Date());
-  const scheduledFor = today;
+  const horizon = addDaysUTC(today, 45); // safe default; prefs windowDays handled inside bill scheduler
 
-  const subTargetStart = startOfDayUTC(addDaysUTC(today, SUB_LEAD_DAYS));
-  const subTargetEnd = addDaysUTC(subTargetStart, 1);
-
-  const retTargetStart = startOfDayUTC(addDaysUTC(today, RETURN_LEAD_DAYS));
-  const retTargetEnd = addDaysUTC(retTargetStart, 1);
-
-  const billTarget = startOfDayUTC(addDaysUTC(today, BILL_LEAD_DAYS));
-  const billTargetISO = isoDateOnly(billTarget);
-
-  // Parallelize all queries for faster execution
-  const [subs, returns, bills, dropped, refundOverdue] = await Promise.all([
-    // 1) Subscriptions that renew in SUB_LEAD_DAYS
+  const [subs, returns, bills, refundCandidates] = await Promise.all([
     prisma.subscription.findMany({
-      where: {
-        status: "ACTIVE",
-        renewalDate: { gte: subTargetStart, lt: subTargetEnd },
-      },
-      select: { id: true, userId: true, name: true, amountCents: true, currency: true, renewalDate: true },
+      where: { status: "ACTIVE", renewalDate: { gte: today, lt: horizon } },
+      select: { id: true, userId: true, name: true, renewalDate: true, amountCents: true, currency: true },
     }),
-    // 2) Return deadlines in RETURN_LEAD_DAYS (not refunded)
     prisma.returnItem.findMany({
       where: {
         status: { in: ["NOT_STARTED", "PACKED"] },
-        returnBy: { gte: retTargetStart, lt: retTargetEnd },
+        returnBy: { gte: today, lt: horizon },
       },
-      select: { id: true, userId: true, store: true, itemNote: true, amountCents: true, currency: true, returnBy: true },
+      select: { id: true, userId: true, store: true, itemNote: true, amountCents: true, currency: true, returnBy: true, status: true },
     }),
-    // 3) Bills due in BILL_LEAD_DAYS (computed from dueDayOfMonth)
     prisma.bill.findMany({
       where: { status: "ACTIVE" },
-      select: { id: true, userId: true, name: true, amountCents: true, currency: true, dueDayOfMonth: true },
+      select: { id: true, userId: true, name: true, dueDayOfMonth: true, amountCents: true, currency: true },
     }),
-    // 4) Refund check due today (derived from dropoffDate + 7/14)
     prisma.returnItem.findMany({
       where: {
-        dropoffDate: { not: null, gte: addDaysUTC(today, -20), lt: addDaysUTC(today, 1) },
-        refundedDate: null,
-        status: { not: "REFUNDED" },
+        OR: [
+          { dropoffDate: { not: null }, refundedDate: null },
+          { refundExpectedBy: { not: null }, refundedDate: null },
+        ],
       },
-      select: { id: true, userId: true, store: true, dropoffDate: true, amountCents: true, currency: true },
-    }),
-    // 5) Refund overdue: expected date passed and not refunded
-    prisma.returnItem.findMany({
-      where: {
-        refundExpectedBy: { not: null, lt: today },
-        refundedDate: null,
-      },
-      select: { id: true, userId: true, store: true, refundExpectedBy: true, amountCents: true, currency: true },
+      select: { id: true, userId: true, store: true, dropoffDate: true, refundedDate: true, refundExpectedBy: true },
     }),
   ]);
 
-  const creates: Promise<unknown>[] = [];
+  let attempted = 0;
 
-  // helper: upsert by deterministic eventKey
-  async function upsertNotif(input: {
-    userId: string;
-    type: NotificationType;
-    title: string;
-    body?: string;
-    eventDate?: Date;
-    sourceKind: string;
-    sourceId: string;
-    eventKey: string;
-  }) {
-    return prisma.notification.upsert({
-      where: { userId_eventKey: { userId: input.userId, eventKey: input.eventKey } },
-      create: {
-        userId: input.userId,
-        type: input.type,
-        title: input.title,
-        body: input.body,
-        eventDate: input.eventDate,
-        scheduledFor,
-        sourceKind: input.sourceKind,
-        sourceId: input.sourceId,
-        eventKey: input.eventKey,
-      },
-      update: {}, // don’t spam-update once created
+  for (const s of subs) {
+    attempted++;
+    await scheduleSubscriptionRenewalSoon({
+      userId: s.userId,
+      subscriptionId: s.id,
+      name: s.name,
+      renewalDate: s.renewalDate,
+      amountCents: s.amountCents,
+      currency: s.currency,
     });
   }
 
-  // Sub notifications
-  for (const s of subs) {
-    const eventISO = isoDateOnly(s.renewalDate);
-    const amt = `${s.currency} ${(s.amountCents / 100).toFixed(2)}`;
-    const title = `${s.name} renews in ${SUB_LEAD_DAYS} days`;
-    const body = `Renews on ${eventISO} · ${amt}. If you want to cancel, do it before renewal.`;
-    const eventKey = `sub:${s.id}:${eventISO}:lead${SUB_LEAD_DAYS}`;
-
-    creates.push(
-      upsertNotif({
-        userId: s.userId,
-        type: "SUBSCRIPTION_RENEWAL_SOON" as NotificationType,
-        title,
-        body,
-        eventDate: startOfDayUTC(s.renewalDate),
-        sourceKind: "subscription",
-        sourceId: s.id,
-        eventKey,
-      })
-    );
-  }
-
-  // Return notifications
   for (const r of returns) {
-    const eventISO = isoDateOnly(r.returnBy);
-    const title = `Return deadline in ${RETURN_LEAD_DAYS} days`;
-    const body = `${r.store}${r.itemNote ? ` — ${r.itemNote}` : ""} · Return by ${eventISO}.`;
-    const eventKey = `ret:${r.id}:${eventISO}:lead${RETURN_LEAD_DAYS}`;
-
-    creates.push(
-      upsertNotif({
-        userId: r.userId,
-        type: "RETURN_DEADLINE_SOON" as NotificationType,
-        title,
-        body,
-        eventDate: startOfDayUTC(r.returnBy),
-        sourceKind: "return",
-        sourceId: r.id,
-        eventKey,
-      })
-    );
+    attempted++;
+    await scheduleReturnDeadlineSoon({
+      userId: r.userId,
+      returnId: r.id,
+      store: r.store,
+      itemNote: r.itemNote,
+      returnBy: r.returnBy,
+      amountCents: r.amountCents,
+      currency: r.currency,
+      status: r.status === "NOT_STARTED" ? "NOT_STARTED" : r.status === "PACKED" ? "PACKED" : "NOT_STARTED",
+    });
   }
 
-  // Bill notifications (compute due date for current + next month; match billTargetISO)
-  const y0 = billTarget.getUTCFullYear();
-  const m0 = billTarget.getUTCMonth();
   for (const b of bills) {
-    const day = clampDayToMonth(y0, m0, b.dueDayOfMonth);
-    const due = new Date(Date.UTC(y0, m0, day));
-    if (isoDateOnly(due) !== billTargetISO) continue;
-
-    const eventISO = isoDateOnly(due);
-    const amt = b.amountCents != null ? `${b.currency} ${(b.amountCents / 100).toFixed(2)}` : "amount unknown";
-    const title = `${b.name} due in ${BILL_LEAD_DAYS} days`;
-    const body = `Due on ${eventISO} · ${amt}.`;
-    const monthKey = eventISO.slice(0, 7);
-    const eventKey = `bill:${b.id}:${monthKey}:lead${BILL_LEAD_DAYS}`;
-
-    creates.push(
-      upsertNotif({
-        userId: b.userId,
-        type: "BILL_DUE_SOON" as NotificationType,
-        title,
-        body,
-        eventDate: due,
-        sourceKind: "bill",
-        sourceId: `${b.id}:${monthKey}`,
-        eventKey,
-      })
-    );
+    attempted++;
+    await scheduleBillDueSoon({
+      userId: b.userId,
+      billId: b.id,
+      name: b.name,
+      dueDayOfMonth: b.dueDayOfMonth,
+      amountCents: b.amountCents,
+      currency: b.currency,
+    });
   }
 
-  // Refund checks due today
-  for (const r of dropped) {
-    const drop = startOfDayUTC(r.dropoffDate!);
-    const check7 = addDaysUTC(drop, 7);
-    const check14 = addDaysUTC(drop, 14);
+  for (const r of refundCandidates) {
+    attempted++;
+    await scheduleRefundChecks({
+      userId: r.userId,
+      returnId: r.id,
+      store: r.store,
+      dropoffDate: r.dropoffDate,
+      refundedDate: r.refundedDate,
+    });
 
-    for (const [check, label] of [
-      [check7, "Refund check (7d)"],
-      [check14, "Refund check (14d)"],
-    ] as const) {
-      if (isoDateOnly(check) !== isoDateOnly(today)) continue;
-
-      const eventISO = isoDateOnly(check);
-      const title = `${label}: ${r.store}`;
-      const body = `Follow up on refund · ${eventISO}.`;
-      const eventKey = `refund:${r.id}:${label}:${eventISO}`;
-
-      creates.push(
-        upsertNotif({
-          userId: r.userId,
-        type: "REFUND_CHECK_DUE" as NotificationType,
-          title,
-          body,
-          eventDate: check,
-          sourceKind: "return",
-          sourceId: r.id,
-          eventKey,
-        })
-      );
-    }
+    await scheduleRefundOverdueOnce({
+      userId: r.userId,
+      returnId: r.id,
+      store: r.store,
+      refundExpectedBy: r.refundExpectedBy ?? null,
+      refundedDate: r.refundedDate,
+    });
   }
-
-  // Refund overdue notifications
-  for (const r of refundOverdue) {
-    const expectedISO = r.refundExpectedBy ? isoDateOnly(r.refundExpectedBy) : "date unknown";
-    const title = `Refund overdue: ${r.store}`;
-    const body = `Expected by ${expectedISO}. Follow up to recover your refund.`;
-    const eventKey = `refund_overdue:${r.id}:${expectedISO}`;
-
-    creates.push(
-      upsertNotif({
-        userId: r.userId,
-        type: "REFUND_OVERDUE" as NotificationType,
-        title,
-        body,
-        eventDate: r.refundExpectedBy ?? undefined,
-        sourceKind: "return",
-        sourceId: r.id,
-        eventKey,
-      })
-    );
-  }
-
-  const results = await Promise.allSettled(creates);
-  const createdOrExisting = results.filter(r => r.status === "fulfilled").length;
 
   return NextResponse.json({
     ok: true,
-    scheduledFor: isoDateOnly(scheduledFor),
-    attempted: creates.length,
-    upserts: createdOrExisting,
+    attempted,
+    scanned: { subs: subs.length, returns: returns.length, bills: bills.length, refundCandidates: refundCandidates.length },
   });
 }

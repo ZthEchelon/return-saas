@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleReturnDeadlineSoon } from "@/lib/notifications/domainScheduler";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -53,6 +54,17 @@ export async function POST(req: Request) {
       returnBy: rb,
       status: "NOT_STARTED",
     },
+  });
+
+  await scheduleReturnDeadlineSoon({
+    userId,
+    returnId: created.id,
+    store: created.store,
+    itemNote: created.itemNote,
+    returnBy: created.returnBy,
+    amountCents: created.amountCents,
+    currency: created.currency,
+    status: created.status,
   });
 
   return NextResponse.json({ returnItem: created });

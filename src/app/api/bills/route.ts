@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleBillDueSoon } from "@/lib/notifications/domainScheduler";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -31,6 +32,15 @@ export async function POST(req: Request) {
       notes: notes ?? null,
       status: "ACTIVE",
     },
+  });
+
+  await scheduleBillDueSoon({
+    userId,
+    billId: created.id,
+    name: created.name,
+    dueDayOfMonth: created.dueDayOfMonth,
+    amountCents: created.amountCents,
+    currency: created.currency,
   });
 
   return NextResponse.json({ bill: created });

@@ -617,15 +617,25 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => setShowAddBill(true)}>
-            + Bill
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
+          <span className="text-slate-500">Add items to your calendar:</span>
+          <button
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 transition hover:border-slate-300 hover:bg-slate-50"
+            onClick={() => setShowAddBill(true)}
+          >
+            + Add Bill (due date)
           </button>
-          <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => setShowAddSub(true)}>
-            + Subscription
+          <button
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 transition hover:border-slate-300 hover:bg-slate-50"
+            onClick={() => setShowAddSub(true)}
+          >
+            + Add Subscription (renewal)
           </button>
-          <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => setShowAddReturn(true)}>
-            + Return
+          <button
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 transition hover:border-slate-300 hover:bg-slate-50"
+            onClick={() => setShowAddReturn(true)}
+          >
+            + Add Return (deadline)
           </button>
         </div>
 

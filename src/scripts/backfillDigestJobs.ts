@@ -1,5 +1,3 @@
-//one time backfill for existing enabled users
-
 import { prisma } from "@/lib/prisma";
 import { scheduleNextDigestJob } from "@/lib/notifications/digestJobs";
 

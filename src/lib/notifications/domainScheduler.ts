@@ -100,8 +100,8 @@ export async function scheduleSubscriptionRenewalSoon(args: {
   const eventISO = isoDateOnly(eventDay);
   const amt = args.amountCents != null ? `${args.currency ?? "CAD"} ${(args.amountCents / 100).toFixed(2)}` : "";
 
-  const title = `${args.name} renews in ${leadDays} days`;
-  const body = `Renews on ${eventISO}${amt ? ` · ${amt}` : ""}. If you want to cancel, do it before renewal.`;
+  const title = args.name;
+  const body = `Renews on ${eventISO}${amt ? ` · ${amt}` : ""} · (${leadDays} days)`;
 
   const eventKey = `sub:${args.subscriptionId}:${eventISO}:lead${leadDays}`;
 
@@ -133,7 +133,7 @@ export async function scheduleReturnDeadlineSoon(args: {
   returnBy: Date;
   amountCents?: number | null;
   currency?: string | null;
-  status: "NOT_STARTED" | "PACKED" | "RETURNED" | "REFUNDED";
+  status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
 }) {
   // only schedule if still actionable
   if (!(args.status === "NOT_STARTED" || args.status === "PACKED")) {
@@ -158,8 +158,8 @@ export async function scheduleReturnDeadlineSoon(args: {
   const eventISO = isoDateOnly(eventDay);
   const amt = args.amountCents != null ? `${args.currency ?? "CAD"} ${(args.amountCents / 100).toFixed(2)}` : "";
 
-  const title = `Return deadline in ${leadDays} days`;
-  const body = `${args.store}${args.itemNote ? ` — ${args.itemNote}` : ""} · Return by ${eventISO}${amt ? ` · ${amt}` : ""}.`;
+  const title = `${args.store}${args.itemNote ? ` — ${args.itemNote}` : ""}`;
+  const body = `Return by ${eventISO}${amt ? ` · ${amt}` : ""} · (${leadDays} days)`;
 
   const eventKey = `ret:${args.returnId}:${eventISO}:lead${leadDays}`;
 
@@ -222,8 +222,8 @@ export async function scheduleBillDueSoon(args: {
     const dueISO = isoDateOnly(dueDay);
 
     const amt = args.amountCents != null ? `${args.currency ?? "CAD"} ${(args.amountCents / 100).toFixed(2)}` : "amount unknown";
-    const title = `${args.name} due in ${leadDays} days`;
-    const body = `Due on ${dueISO} · ${amt}.`;
+    const title = args.name;
+    const body = `Due on ${dueISO} · ${amt} · (${leadDays} days)`;
 
     const monthKey = dueISO.slice(0, 7);
     const eventKey = `bill:${args.billId}:${dueISO}:lead${leadDays}`;

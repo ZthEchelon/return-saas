@@ -1,8 +1,9 @@
- //update return endpoint (droped off / refunded)
+//update return endpoint (droped off / refunded)
 
- import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/domainScheduler";
 // avoid importing prisma enums directly; use string unions matching schema
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,6 +11,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
   const { id } = await params;
+  const current = await prisma.returnItem.findFirst({ where: { id, userId } });
+  if (!current) return new NextResponse("Not found", { status: 404 });
+
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
@@ -45,9 +49,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // recompute returnBy if purchaseDate or returnWindowDays changes
   if (data.purchaseDate || data.returnWindowDays) {
-    const current = await prisma.returnItem.findFirst({ where: { id, userId } });
-    if (!current) return new NextResponse("Not found", { status: 404 });
-
     const pd = data.purchaseDate ?? current.purchaseDate;
     const wd = data.returnWindowDays ?? current.returnWindowDays;
 
@@ -75,12 +76,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.trackingNumber = t && t.length > 0 ? t : null;
   }
 
-  const updated = await prisma.returnItem.updateMany({
-    where: { id, userId },
+  const updated = await prisma.returnItem.update({
+    where: { id },
     data,
   });
 
-  if (updated.count === 0) return new NextResponse("Not found", { status: 404 });
+  await scheduleReturnDeadlineSoon({
+    userId,
+    returnId: updated.id,
+    store: updated.store,
+    itemNote: updated.itemNote,
+    returnBy: updated.returnBy,
+    amountCents: updated.amountCents,
+    currency: updated.currency,
+    status: updated.status,
+  });
+
+  await scheduleRefundChecks({
+    userId,
+    returnId: updated.id,
+    store: updated.store,
+    dropoffDate: updated.dropoffDate,
+    refundedDate: updated.refundedDate,
+  });
+
+  if (updated.refundExpectedBy) {
+    await scheduleRefundOverdueOnce({
+      userId,
+      returnId: updated.id,
+      store: updated.store,
+      refundExpectedBy: updated.refundExpectedBy ?? null,
+      refundedDate: updated.refundedDate,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -21,6 +21,20 @@ type Notification = {
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
+function formatDateLong(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return dateFormatter.format(d);
+}
+
 function typeLabel(t: NotificationType) {
   switch (t) {
     case "SUBSCRIPTION_RENEWAL_SOON": return "Subscription";
@@ -140,7 +154,13 @@ export default function NotificationsClient() {
                       </div>
                       {n.body ? <div className="text-xs text-slate-600">{n.body}</div> : null}
                       <div className="text-[11px] text-slate-500">
-                        {n.scheduledFor?.slice(0, 10)}{n.eventDate ? ` · event ${n.eventDate.slice(0, 10)}` : ""}
+                        <span className="font-semibold text-slate-600">Notifies on:</span> {formatDateLong(n.scheduledFor)}
+                        {n.eventDate ? (
+                          <>
+                            <span className="mx-1 text-slate-300">•</span>
+                            <span className="font-semibold text-slate-600">Event date:</span> {formatDateLong(n.eventDate)}
+                          </>
+                        ) : null}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs">

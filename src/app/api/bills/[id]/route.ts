@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleBillDueSoon } from "@/lib/notifications/domainScheduler";
 // no prisma enum import to avoid version/type export issues
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,6 +11,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
   const { id } = await params;
+
+  const existing = await prisma.bill.findFirst({ where: { id, userId } });
+  if (!existing) return new NextResponse("Not found", { status: 404 });
+
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
@@ -45,8 +50,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data.status = body.status as "ACTIVE" | "PAUSED";
   }
 
-  const updated = await prisma.bill.updateMany({ where: { id, userId }, data });
-  if (updated.count === 0) return new NextResponse("Not found", { status: 404 });
+  const updated = await prisma.bill.update({
+    where: { id },
+    data,
+  });
+
+  if (updated.status === "ACTIVE") {
+    await scheduleBillDueSoon({
+      userId,
+      billId: updated.id,
+      name: updated.name,
+      dueDayOfMonth: updated.dueDayOfMonth,
+      amountCents: updated.amountCents,
+      currency: updated.currency,
+    });
+  } else {
+    await prisma.notification.updateMany({
+      where: { userId, sourceKind: "bill", sourceId: { startsWith: `${updated.id}:` }, dismissedAt: null },
+      data: { dismissedAt: new Date() },
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

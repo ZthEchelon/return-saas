@@ -112,7 +112,8 @@ export async function POST(req: Request) {
     }
 
     try {
-      const built = await buildDigestForUser(userId, now);
+      const tz = pref.timezone ?? "America/Toronto";
+      const built = await buildDigestForUser(userId, now, tz);
       if (!built) {
         // nothing to send today — still mark sent and schedule next day
         await prisma.notificationJob.update({
@@ -120,17 +121,22 @@ export async function POST(req: Request) {
           data: { status: "SENT", sentAt: now, lockedAt: null, lockId: null, lastError: null },
         });
 
-        await scheduleNextDigestJob(userId, { timezone: pref.timezone ?? "America/Toronto", digestHourLocal: pref.digestHourLocal }, now);
+        await scheduleNextDigestJob(userId, { timezone: tz, digestHourLocal: pref.digestHourLocal }, now);
         skipped++;
         continue;
       }
 
-      const { digest } = built;
+      const { digest, notificationIds } = built;
 
       await sendEmail({
         to,
         subject: digest.subject,
         html: renderDigestEmail({ appUrl, digest }),
+      });
+
+      await prisma.notification.updateMany({
+        where: { id: { in: notificationIds } },
+        data: { emailedAt: now },
       });
 
       await prisma.notificationJob.update({
@@ -141,7 +147,7 @@ export async function POST(req: Request) {
       // chain schedule the next job
       await scheduleNextDigestJob(
         userId,
-        { timezone: pref.timezone ?? "America/Toronto", digestHourLocal: pref.digestHourLocal },
+        { timezone: tz, digestHourLocal: pref.digestHourLocal },
         now
       );
 
