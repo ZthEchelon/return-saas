@@ -13,6 +13,14 @@ export default async function DashboardPage() {
   const today = now.toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+  type BillRow = { id: string; amountCents: number | null; autopay: boolean; status: string };
+  type SubscriptionRow = { id: string; amountCents: number; status: string; renewalDate: Date };
+  type ReturnRow = { id: string; amountCents: number | null; status: string; returnBy: Date; refundedDate: Date | null };
+  type RecentTxRow = { merchant: string; totalCents: number | null; currency: string; purchasedAt: Date | null };
+  type UpcomingBillRow = { name: string; amountCents: number | null; dueDayOfMonth: number; autopay: boolean };
+  type UpcomingReturnRow = { store: string; itemNote: string | null; returnBy: Date; amountCents: number | null };
+  type UpcomingSubRow = { name: string; amountCents: number; renewalDate: Date };
+
   const [
     bills,
     subscriptions,
@@ -22,32 +30,32 @@ export default async function DashboardPage() {
     upcomingReturns,
     activeSubscriptions,
   ] = await Promise.all([
-    prisma.bill.findMany({ where: { userId }, select: { id: true, amountCents: true, autopay: true, status: true } }),
-    prisma.subscription.findMany({ where: { userId }, select: { id: true, amountCents: true, status: true, renewalDate: true } }),
-    prisma.returnItem.findMany({ where: { userId }, select: { id: true, amountCents: true, status: true, returnBy: true, refundedDate: true } }),
+    prisma.bill.findMany({ where: { userId }, select: { id: true, amountCents: true, autopay: true, status: true } }) as Promise<BillRow[]>,
+    prisma.subscription.findMany({ where: { userId }, select: { id: true, amountCents: true, status: true, renewalDate: true } }) as Promise<SubscriptionRow[]>,
+    prisma.returnItem.findMany({ where: { userId }, select: { id: true, amountCents: true, status: true, returnBy: true, refundedDate: true } }) as Promise<ReturnRow[]>,
     prisma.emailTransaction.findMany({
       where: { userId, purchasedAt: { gte: new Date(thirtyDaysAgo) } },
       orderBy: { purchasedAt: "desc" },
       take: 5,
       select: { merchant: true, totalCents: true, currency: true, purchasedAt: true },
-    }),
+    }) as Promise<RecentTxRow[]>,
     prisma.bill.findMany({
       where: { userId, status: "ACTIVE" },
       take: 5,
       select: { name: true, amountCents: true, dueDayOfMonth: true, autopay: true },
-    }),
+    }) as Promise<UpcomingBillRow[]>,
     prisma.returnItem.findMany({
       where: { userId, status: { in: ["NOT_STARTED", "PACKED", "DROPPED_OFF"] }, returnBy: { gte: new Date(today + "T00:00:00.000Z") } },
       orderBy: { returnBy: "asc" },
       take: 5,
       select: { store: true, itemNote: true, returnBy: true, amountCents: true },
-    }),
+    }) as Promise<UpcomingReturnRow[]>,
     prisma.subscription.findMany({
       where: { userId, status: "ACTIVE" },
       orderBy: { renewalDate: "asc" },
       take: 5,
       select: { name: true, amountCents: true, renewalDate: true },
-    }),
+    }) as Promise<UpcomingSubRow[]>,
   ]);
 
   // Calculate stats
