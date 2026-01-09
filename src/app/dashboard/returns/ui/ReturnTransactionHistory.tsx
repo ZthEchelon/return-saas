@@ -14,7 +14,7 @@ export default async function ReturnTransactionHistory({
 
   if (transactions.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+      <div className="rounded-lg border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-sm text-slate-300">
         No history yet
       </div>
     );
@@ -23,7 +23,7 @@ export default async function ReturnTransactionHistory({
   return (
     <div className="space-y-2">
       {transactions.map(tx => (
-        <div key={tx.id} className="flex items-center justify-between rounded-lg border bg-slate-50 px-4 py-3 text-sm">
+        <div key={tx.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">
           <div className="flex items-center gap-3">
             <span className="text-xl">
               {tx.type === "refund"
@@ -33,20 +33,20 @@ export default async function ReturnTransactionHistory({
                 : "📅"}
             </span>
             <div>
-              <p className="font-medium text-slate-900">{tx.title}</p>
-              <p className="text-xs text-slate-500">
+              <p className="font-medium text-white">{tx.title}</p>
+              <p className="text-xs text-slate-400">
                 {tx.date.toLocaleDateString("en-CA")}
               </p>
             </div>
           </div>
           <div className="text-right">
             {tx.amount > 0 && (
-              <p className={`font-semibold ${tx.type === "refund" ? "text-green-600" : "text-slate-900"}`}>
+              <p className={`font-semibold ${tx.type === "refund" ? "text-emerald-100" : "text-slate-100"}`}>
                 {tx.type === "refund" ? "+" : "-"}{formatMoney(tx.amount, tx.currency)}
               </p>
             )}
             {tx.notes && (
-              <p className="text-xs text-slate-500">{tx.notes}</p>
+              <p className="text-xs text-slate-400">{tx.notes}</p>
             )}
           </div>
         </div>

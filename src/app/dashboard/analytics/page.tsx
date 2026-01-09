@@ -71,17 +71,6 @@ export default function AnalyticsDashboard() {
     );
   }
 
-  const monthLabels = data.sixMonthTrend.map(m => {
-    const [year, month] = m.month.split("-");
-    return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString("en-US", {
-      month: "short",
-      year: "2-digit",
-    });
-  });
-
-  const maxTotal = Math.max(...data.sixMonthTrend.map(m => m.totalCents), 1);
-  const scaleFactor = 100 / maxTotal;
-
   return (
     <div className="space-y-6">
       <div>
@@ -117,43 +106,51 @@ export default function AnalyticsDashboard() {
         />
       </div>
 
-      {/* 6-Month Trend Chart */}
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">6-Month Spending Trend</h2>
-        <div className="space-y-3">
-          {data.sixMonthTrend.map((month, idx) => (
-            <div key={month.month} className="space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-600">{monthLabels[idx]}</span>
-                <span className="text-slate-900 font-semibold">
-                  {formatMoney(month.totalCents, "CAD")}
-                </span>
-              </div>
-              <div className="flex h-6 gap-0.5 overflow-hidden rounded-full bg-slate-100">
-                {month.subscriptionsCents > 0 && (
-                  <div
-                    className="bg-emerald-500"
-                    style={{ width: `${month.subscriptionsCents * scaleFactor}%` }}
-                    title={`Subscriptions: ${formatMoney(month.subscriptionsCents, "CAD")}`}
-                  />
-                )}
-                {month.billsCents > 0 && (
-                  <div
-                    className="bg-blue-500"
-                    style={{ width: `${month.billsCents * scaleFactor}%` }}
-                    title={`Bills: ${formatMoney(month.billsCents, "CAD")}`}
-                  />
-                )}
-                {month.refundsCents > 0 && (
-                  <div
-                    className="bg-green-500"
-                    style={{ width: `${month.refundsCents * scaleFactor}%` }}
-                    title={`Refunds: ${formatMoney(month.refundsCents, "CAD")}`}
-                  />
-                )}
-              </div>
+      {/* Charts */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-slate-500">6-Month Trend</p>
+              <p className="text-sm text-slate-600">Stacked bars by type</p>
             </div>
-          ))}
+            <Legend
+              items={[
+                { label: "Subscriptions", color: "#10b981" },
+                { label: "Bills", color: "#3b82f6" },
+                { label: "Refunds", color: "#22c55e" },
+              ]}
+            />
+          </div>
+          <BarChart data={data.sixMonthTrend} />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Total Over Time</p>
+              <p className="text-sm text-slate-600">Line chart of combined spend</p>
+            </div>
+            <Legend items={[{ label: "Total", color: "#0ea5e9" }]} />
+          </div>
+          <LineChart data={data.sixMonthTrend} />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Category Mix</p>
+              <p className="text-sm text-slate-600">Subscriptions vs Bills vs Returns</p>
+            </div>
+            <Legend
+              items={[
+                { label: "Subscriptions", color: "#10b981" },
+                { label: "Bills", color: "#3b82f6" },
+                { label: "Returns", color: "#a855f7" },
+              ]}
+            />
+          </div>
+          <PieChart data={data.categoryBreakdown} />
         </div>
       </div>
 
@@ -267,6 +264,181 @@ function StatCard({ label, value, color, icon }: StatCardProps) {
           <p className="mt-2 text-2xl font-bold">{value}</p>
         </div>
         <span className="text-2xl">{icon}</span>
+      </div>
+    </div>
+  );
+}
+
+function Legend({ items }: { items: Array<{ label: string; color: string }> }) {
+  return (
+    <div className="flex items-center gap-3 text-xs text-slate-600">
+      {items.map(item => (
+        <span key={item.label} className="flex items-center gap-1">
+          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function BarChart({
+  data,
+}: {
+  data: Array<{ month: string; subscriptionsCents: number; billsCents: number; refundsCents: number }>;
+}) {
+  if (data.length === 0) {
+    return <div className="mt-3 text-sm text-slate-500">No trend data yet.</div>;
+  }
+
+  const max = Math.max(
+    ...data.map(d => d.subscriptionsCents + d.billsCents + Math.max(0, d.refundsCents)),
+    1
+  );
+  const barWidth = 44;
+  const height = 160;
+  const colors = {
+    subs: "#10b981",
+    bills: "#3b82f6",
+    refunds: "#22c55e",
+  };
+
+  return (
+    <div className="mt-3 flex items-end justify-between gap-3 overflow-x-auto pb-1">
+      {data.map(d => {
+        const total = d.subscriptionsCents + d.billsCents + Math.max(0, d.refundsCents);
+        const subsH = (d.subscriptionsCents / max) * height;
+        const billsH = (d.billsCents / max) * height;
+        const refundsH = (Math.max(0, d.refundsCents) / max) * height;
+        const label = new Date(d.month + "-01").toLocaleDateString("en-US", { month: "short" });
+
+        return (
+          <div key={d.month} className="flex flex-col items-center" style={{ minWidth: barWidth }}>
+            <div className="relative flex w-full flex-col justify-end rounded-lg bg-slate-100" style={{ height }}>
+              <div style={{ height: subsH, backgroundColor: colors.subs }} />
+              <div style={{ height: billsH, backgroundColor: colors.bills }} />
+              <div style={{ height: refundsH, backgroundColor: colors.refunds }} />
+            </div>
+            <div className="mt-2 text-xs text-slate-500">{label}</div>
+            <div className="text-[11px] text-slate-400">{formatMoney(total, "CAD")}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LineChart({
+  data,
+}: {
+  data: Array<{ month: string; totalCents: number }>;
+}) {
+  if (data.length === 0) {
+    return <div className="mt-4 text-sm text-slate-500">No trend data yet.</div>;
+  }
+
+  const width = 360;
+  const height = 180;
+  const padding = 24;
+  const maxY = Math.max(...data.map(d => d.totalCents), 1);
+  const points = data.map((d, idx) => {
+    const x = padding + (idx / Math.max(1, data.length - 1)) * (width - padding * 2);
+    const y = padding + (1 - d.totalCents / maxY) * (height - padding * 2);
+    return { x, y, label: new Date(d.month + "-01").toLocaleDateString("en-US", { month: "short" }) };
+  });
+
+  const polyline = points.map(p => `${p.x},${p.y}`).join(" ");
+
+  return (
+    <div className="mt-4">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
+        <defs>
+          <linearGradient id="lineFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <polyline
+          fill="none"
+          stroke="#0ea5e9"
+          strokeWidth="2.5"
+          points={polyline}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <polygon
+          fill="url(#lineFill)"
+          points={`${points[0].x},${height - padding} ${polyline} ${points[points.length - 1].x},${height - padding}`}
+        />
+        {points.map((p, idx) => (
+          <g key={idx}>
+            <circle cx={p.x} cy={p.y} r={4} fill="#0ea5e9" />
+          </g>
+        ))}
+      </svg>
+      <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+        {points.map(p => (
+          <span key={p.x}>{p.label}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PieChart({
+  data,
+}: {
+  data: { subscriptions: number; bills: number; returns: number };
+}) {
+  const total = Math.max(data.subscriptions + data.bills + data.returns, 1);
+  const slices = [
+    { label: "Subscriptions", value: data.subscriptions, color: "#10b981" },
+    { label: "Bills", value: data.bills, color: "#3b82f6" },
+    { label: "Returns", value: data.returns, color: "#a855f7" },
+  ];
+
+  let cumulative = 0;
+  const radius = 70;
+  const center = 90;
+
+  return (
+    <div className="mt-4 flex items-center gap-4">
+      <svg viewBox="0 0 180 180" className="h-40 w-40">
+        {slices.map(slice => {
+          const startAngle = (cumulative / total) * 2 * Math.PI;
+          const sliceAngle = (slice.value / total) * 2 * Math.PI;
+          cumulative += slice.value;
+          const endAngle = startAngle + sliceAngle;
+
+          const x1 = center + radius * Math.sin(startAngle);
+          const y1 = center - radius * Math.cos(startAngle);
+          const x2 = center + radius * Math.sin(endAngle);
+          const y2 = center - radius * Math.cos(endAngle);
+          const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+          const pathData = [
+            `M ${center} ${center}`,
+            `L ${x1} ${y1}`,
+            `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+            "Z",
+          ].join(" ");
+
+          return <path key={slice.label} d={pathData} fill={slice.color} stroke="white" strokeWidth="1" />;
+        })}
+      </svg>
+      <div className="space-y-1 text-sm text-slate-700">
+        {slices.map(slice => {
+          const pct = Math.round((slice.value / total) * 100);
+          return (
+            <div key={slice.label} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: slice.color }} />
+                {slice.label}
+              </span>
+              <span className="text-slate-500">{pct}%</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
