@@ -55,11 +55,11 @@ function Navbar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/site.png"
+            src="/landing.png"
             alt="Looply logo"
-            width={48}
-            height={48}
-            className="h-11 w-11 rounded-2xl object-contain drop-shadow-lg"
+            width={400}
+            height={400}
+            className="h-12 w-16 rounded-xl object-contain drop-shadow-lg"
             priority
           />
           <span className="sr-only">Looply</span>
