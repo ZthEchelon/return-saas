@@ -3,7 +3,6 @@ import { ReactNode } from "react";
 import { UserButton } from "@clerk/nextjs";
 import NotificationsBadgeServer from "../ui/NotificationsBadgeServer";
 import { SidebarNav } from "./ui/SidebarNav";
-import ThemeToggle from "./ui/ThemeToggle";
 import { GeminiUpgradeBadge } from "@/app/ui/GeminiUpgradeBadge";
 
 const navItems = [
@@ -58,8 +57,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
                 />
               </div>
-              <GeminiUpgradeBadge className="hidden sm:inline-flex" />
-              <ThemeToggle />
               <Link
                 href="/dashboard/receipts"
                 className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-lg transition hover:-translate-y-0.5 hover:border-cyan-200/50 hover:bg-white/10"
@@ -68,10 +65,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               >
                 🧾
               </Link>
-              <button className="hidden items-center gap-2 rounded-2xl border border-cyan-200/50 bg-gradient-to-r from-cyan-400/80 via-emerald-400/80 to-fuchsia-400/70 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:-translate-y-0.5 hover:shadow-cyan-500/50 sm:flex">
-                <span className="text-base">＋</span>
-                Add
-              </button>
+              <Link
+                href="/pricing"
+                className="hidden items-center gap-2 rounded-2xl border border-cyan-200/50 bg-gradient-to-r from-cyan-400/80 via-emerald-400/80 to-fuchsia-400/70 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:-translate-y-0.5 hover:shadow-cyan-500/50 sm:flex"
+              >
+                <span className="text-base">⚡</span>
+                Upgrade
+              </Link>
               <div className="hidden sm:block">
                 <NotificationsBadgeServer />
               </div>

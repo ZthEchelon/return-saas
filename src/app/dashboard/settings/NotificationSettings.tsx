@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type Pref = {
@@ -24,6 +24,24 @@ export default function NotificationSettings() {
 
   const [saving, setSaving] = useState(false);
   const [demoStatus, setDemoStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const storageKey = "looply-theme";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = (localStorage.getItem(storageKey) as "light" | "dark" | null) ?? "dark";
+    setTheme(saved);
+    applyTheme(saved);
+  }, []);
+
+  function applyTheme(next: "light" | "dark") {
+    if (typeof document === "undefined") return;
+    const cls = next === "light" ? "theme-light" : "theme-dark";
+    document.body.classList.remove("theme-light", "theme-dark");
+    document.body.classList.add(cls);
+    localStorage.setItem(storageKey, next);
+    setTheme(next);
+  }
 
   async function save() {
     if (!pref) return;
@@ -149,15 +167,15 @@ export default function NotificationSettings() {
             <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
               <span>Theme</span>
               <div className="flex items-center gap-2">
-                {["dark", "light"].map(theme => (
+                {(["dark", "light"] as const).map(mode => (
                   <button
-                    key={theme}
-                    onClick={() => {}}
+                    key={mode}
+                    onClick={() => applyTheme(mode)}
                     className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                      theme === "dark" ? "bg-white/15 text-white" : "bg-white/5 text-slate-300"
+                      theme === mode ? "bg-white/15 text-white" : "bg-white/5 text-slate-300 hover:text-white"
                     }`}
                   >
-                    {theme}
+                    {mode}
                   </button>
                 ))}
               </div>

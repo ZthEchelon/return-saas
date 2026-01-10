@@ -100,6 +100,13 @@ a {
   color: inherit;
 }
 
+button,
+[role="button"],
+a,
+summary {
+  cursor: pointer;
+}
+
 ::selection {
   background: rgba(94, 234, 212, 0.25);
   color: #e8fbff;
