@@ -25,19 +25,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="absolute left-1/2 bottom-[-140px] h-[460px] w-[460px] -translate-x-1/2 rounded-full bg-fuchsia-500/15 blur-[160px]" />
       </div>
 
-      <div className="relative flex min-h-screen">
-        <aside className="hidden w-[270px] shrink-0 flex-col gap-6 border-r border-white/10 bg-white/5 px-6 py-6 backdrop-blur-xl lg:flex">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-emerald-400 text-xl font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition duration-200 group-hover:scale-[1.02]">
-              ⟳
-            </div>
-            <div className="space-y-0.5">
-              <div className="font-display text-lg font-semibold tracking-tight">Looply</div>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">reminders</p>
-            </div>
-          </Link>
+      <div className="relative flex min-h-screen group/sidebar">
+        <Link
+          href="/"
+          className="hidden lg:flex fixed left-3 top-6 z-50 items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition duration-300 group-hover/sidebar:translate-x-[6px]"
+          aria-label="Open navigation"
+        >
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-emerald-400 text-lg font-bold text-slate-950 shadow-lg shadow-cyan-500/30">
+            ⟳
+          </div>
+          <div className="leading-tight">
+            <div className="font-display text-sm font-semibold tracking-tight">Looply</div>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-slate-200">reminders</p>
+          </div>
+        </Link>
 
-          <div className="space-y-1">
+        <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 z-40 w-[270px] shrink-0 flex-col gap-6 border-r border-white/10 bg-white/5 px-6 py-6 backdrop-blur-xl transition-transform duration-300 ease-out -translate-x-[240px] group-hover/sidebar:translate-x-0 group-focus-within/sidebar:translate-x-0">
+          <div className="mt-14 space-y-1">
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Navigation</p>
             <SidebarNav items={navItems} variant="sidebar" />
           </div>

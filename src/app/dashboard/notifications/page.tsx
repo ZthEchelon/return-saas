@@ -11,11 +11,11 @@ export default async function NotificationsPage() {
   if (!userId) redirect("/sign-in");
 
   return (
-    <main className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white/80 p-6 shadow-sm">
+    <main className="space-y-5 text-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/25 backdrop-blur">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Notifications</h1>
-          <p className="text-sm text-slate-600">What the system did and why. Mark items read or jump to the source.</p>
+          <h1 className="text-3xl font-semibold text-white">Notifications</h1>
+          <p className="text-sm text-slate-300">What the system did and why. Mark items read or jump to the source.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Link className="pill-link" href="/dashboard/calendar">Calendar</Link>
