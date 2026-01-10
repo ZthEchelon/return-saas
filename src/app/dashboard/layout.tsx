@@ -3,7 +3,6 @@ import { ReactNode } from "react";
 import { UserButton } from "@clerk/nextjs";
 import NotificationsBadgeServer from "../ui/NotificationsBadgeServer";
 import { SidebarNav } from "./ui/SidebarNav";
-import { GeminiUpgradeBadge } from "@/app/ui/GeminiUpgradeBadge";
 
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: "⚡", hint: "Today" },
