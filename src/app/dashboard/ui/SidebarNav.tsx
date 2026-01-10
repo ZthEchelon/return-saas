@@ -15,7 +15,7 @@ export function SidebarNav({
   variant = "sidebar",
 }: {
   items: NavItem[];
-  variant?: "sidebar" | "mobile";
+  variant?: "sidebar" | "mobile" | "rail";
 }) {
   const pathname = usePathname();
 
@@ -36,6 +36,35 @@ export function SidebarNav({
             >
               <span className="text-sm">{item.icon}</span>
               {item.title}
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (variant === "rail") {
+    return (
+      <div className="space-y-1">
+        {items.map(item => {
+          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              title={item.title}
+              className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border px-2 py-2.5 transition cursor-pointer min-w-max ${
+                active
+                  ? "border-cyan-200/60 bg-white/10 shadow-md shadow-cyan-500/15"
+                  : "border-white/5 bg-white/5 hover:border-white/15 hover:bg-white/10"
+              }`}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-lg">{item.icon}</div>
+              <div className="flex-1 opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 delay-75">
+                <div className="font-semibold text-slate-50 text-sm whitespace-nowrap">{item.title}</div>
+                {item.hint ? <p className="text-[11px] text-slate-400 whitespace-nowrap">{item.hint}</p> : null}
+              </div>
+              {active ? <div className="absolute inset-y-0 left-0 w-[3px] rounded-full bg-gradient-to-b from-cyan-400 to-emerald-400" /> : null}
             </Link>
           );
         })}
