@@ -64,6 +64,8 @@ export async function GET(req: Request) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
+  const now = new Date();
+
   const url = new URL(req.url);
   const start = parseISODateParam(url.searchParams.get("start"));
   const end = parseISODateParam(url.searchParams.get("end"));
@@ -79,7 +81,7 @@ export async function GET(req: Request) {
   const endMonthKey = end.toISOString().slice(0, 7);
 
   // Query raw records inside the range (+ small buffer for derived events)
-  const [activeSubs, cancelledSubs, returnItems, bills, payments] = await Promise.all([
+  const [activeSubs, cancelledSubs, returnItems, bills, payments, snoozedEvents] = await Promise.all([
     prisma.subscription.findMany({
       where: {
         userId,
@@ -147,6 +149,10 @@ export async function GET(req: Request) {
         monthKey: { gte: startMonthKey, lte: endMonthKey },
       },
       select: { billId: true, monthKey: true, paidAt: true, dueDate: true, amountCents: true, currency: true },
+    }),
+    prisma.snoozedEvent.findMany({
+      where: { userId, snoozedUntil: { gt: now } },
+      select: { eventId: true, snoozedUntil: true },
     }),
   ]);
 
@@ -297,8 +303,14 @@ export async function GET(req: Request) {
     }
   }
 
-  // Sort by date then type
-  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.type.localeCompare(b.type)));
+  const snoozedMap = new Map(snoozedEvents.map(s => [s.eventId, s.snoozedUntil]));
+  const activeEvents = events.filter(ev => {
+    const until = snoozedMap.get(ev.id);
+    return !until || until <= now;
+  });
 
-  return NextResponse.json({ events });
+  // Sort by date then type
+  activeEvents.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.type.localeCompare(b.type)));
+
+  return NextResponse.json({ events: activeEvents });
 }

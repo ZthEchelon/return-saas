@@ -32,46 +32,46 @@ enum ReturnStatus {
 }
 
 model Subscription {
-  id           String             @id @default(cuid())
-  userId       String             // Clerk userId
-  name         String
-  amountCents  Int
-  currency     String             @default("CAD")
-  renewalDate  DateTime
-  cadence      SubscriptionCadence @default(MONTHLY)
-  status       SubscriptionStatus  @default(ACTIVE)
-  cancelUrl    String?
-  notes        String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id          String              @id @default(cuid())
+  userId      String // Clerk userId
+  name        String
+  amountCents Int
+  currency    String              @default("CAD")
+  renewalDate DateTime
+  cadence     SubscriptionCadence @default(MONTHLY)
+  status      SubscriptionStatus  @default(ACTIVE)
+  cancelUrl   String?
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
   @@index([userId, renewalDate])
 }
+
 model ReturnItem {
-  id              String      @id @default(cuid())
-  userId          String
-  store           String
-  itemNote        String?
-  amountCents     Int?
-  currency        String      @default("CAD")
-  purchaseDate    DateTime
-  returnWindowDays Int        @default(30)
-  returnBy        DateTime
-  status          ReturnStatus @default(NOT_STARTED)
+  id               String       @id @default(cuid())
+  userId           String
+  store            String
+  itemNote         String?
+  amountCents      Int?
+  currency         String       @default("CAD")
+  purchaseDate     DateTime
+  returnWindowDays Int          @default(30)
+  returnBy         DateTime
+  status           ReturnStatus @default(NOT_STARTED)
 
-  trackingNumber  String?
-  dropoffDate     DateTime?   // when returned/shipped
-  refundExpectedBy DateTime?  // NEW: when you expect refund by
-  refundedDate    DateTime?   // when refund actually received
-  refundAmountCents Int?      // OPTIONAL (nice to have)
+  trackingNumber    String?
+  dropoffDate       DateTime? // when returned/shipped
+  refundExpectedBy  DateTime? // NEW: when you expect refund by
+  refundedDate      DateTime? // when refund actually received
+  refundAmountCents Int? // OPTIONAL (nice to have)
 
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId, returnBy])
   @@index([userId, refundExpectedBy]) // optional but helpful
 }
-
 
 //schema for adding bill paid status
 enum BillStatus {
@@ -85,36 +85,36 @@ model Bill {
   name          String
   amountCents   Int?
   currency      String     @default("CAD")
-  dueDayOfMonth Int        // 1..31
+  dueDayOfMonth Int // 1..31
   autopay       Boolean    @default(false)
   payee         String?
   notes         String?
   status        BillStatus @default(ACTIVE)
 
-  payments      BillPayment[]
-  occurrences   BillOccurrence[]
+  payments    BillPayment[]
+  occurrences BillOccurrence[]
 
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId, status])
 }
 
 model BillPayment {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   billId      String
-  monthKey    String   // "YYYY-MM"
+  monthKey    String // "YYYY-MM"
   dueDate     DateTime
   paidAt      DateTime?
   amountCents Int?
-  currency    String   @default("CAD")
+  currency    String    @default("CAD")
   notes       String?
 
-  bill        Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([billId, monthKey])
   @@index([userId, monthKey])
@@ -127,30 +127,47 @@ enum Plan {
 
 //data model for billing state
 model BillingAccount {
-  id                      String   @id @default(cuid())
-  userId                  String   @unique
-  plan                    Plan     @default(FREE)
+  id     String @id @default(cuid())
+  userId String @unique
+  plan   Plan   @default(FREE)
 
-  stripeCustomerId        String?  @unique
-  stripeSubscriptionId    String?  @unique
-  stripePriceId           String?
-  stripeStatus            String?
-  currentPeriodEnd        DateTime?
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  stripeStatus         String?
+  currentPeriodEnd     DateTime?
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([plan])
 }
+
 model WebhookEvent {
   id        String   @id
   type      String
   createdAt DateTime @default(now())
 }
+
 enum EmailProvider {
   GMAIL
   UPLOAD
 }
+
+// Snoozed calendar events (per user, per event id, until a UTC date)
+model SnoozedEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  eventId      String
+  snoozedUntil DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([userId, snoozedUntil])
+}
+
 enum ReceiptUploadStatus {
   PARSED
   NEEDS_REVIEW
@@ -158,24 +175,23 @@ enum ReceiptUploadStatus {
 }
 
 model ReceiptUpload {
-  id          String             @id @default(cuid())
-  userId      String
+  id     String @id @default(cuid())
+  userId String
 
   filename    String
   contentType String
   sizeBytes   Int
   storagePath String
 
-  status      ReceiptUploadStatus @default(NEEDS_REVIEW)
-  extracted   Json?
-  error       String?
+  status    ReceiptUploadStatus @default(NEEDS_REVIEW)
+  extracted Json?
+  error     String?
 
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId, createdAt])
 }
-
 
 enum SuggestionStatus {
   NEW
@@ -190,9 +206,9 @@ enum SuggestionType {
 }
 
 model EmailConnection {
-  id           String        @id @default(cuid())
-  userId       String        @unique
-  provider     EmailProvider @default(GMAIL)
+  id       String        @id @default(cuid())
+  userId   String        @unique
+  provider EmailProvider @default(GMAIL)
 
   emailAddress String?
   accessToken  String?
@@ -200,14 +216,14 @@ model EmailConnection {
   expiry       DateTime?
   scope        String?
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model EmailMessage {
-  id           String        @id // Gmail messageId
-  userId       String
-  provider     EmailProvider @default(GMAIL)
+  id       String        @id // Gmail messageId
+  userId   String
+  provider EmailProvider @default(GMAIL)
 
   threadId     String?
   internalDate DateTime?
@@ -215,42 +231,43 @@ model EmailMessage {
   subject      String?
   snippet      String?
 
-  createdAt    DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId, provider])
 }
 
 model AutomationSuggestion {
-  id        String           @id @default(cuid())
-  userId    String
-  provider  EmailProvider    @default(GMAIL)
+  id       String        @id @default(cuid())
+  userId   String
+  provider EmailProvider @default(GMAIL)
 
-  primaryMessageId String?   // optional message used as dedupe key
+  primaryMessageId String? // optional message used as dedupe key
 
-  type      SuggestionType
-  status    SuggestionStatus @default(NEW)
+  type   SuggestionType
+  status SuggestionStatus @default(NEW)
 
-  merchant  String
-  amountCents Int?
-  currency  String           @default("CAD")
+  merchant     String
+  amountCents  Int?
+  currency     String   @default("CAD")
   detectedDate DateTime
 
   confidence String
-  reasons   Json
+  reasons    Json
   messageIds Json
-  draft     Json
+  draft      Json
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([userId, primaryMessageId])
   @@index([userId, status])
   @@index([userId, type])
-  @@unique([userId, primaryMessageId])
 }
+
 model EmailTransaction {
-  id        String        @id @default(cuid())
-  userId    String
-  provider  EmailProvider @default(GMAIL)
+  id       String        @id @default(cuid())
+  userId   String
+  provider EmailProvider @default(GMAIL)
 
   messageId String
   merchant  String
@@ -260,10 +277,10 @@ model EmailTransaction {
   purchasedAt DateTime?
   orderId     String?
   totalCents  Int?
-  currency    String  @default("CAD")
+  currency    String    @default("CAD")
   items       Json?
   rawSource   String
-  parserError String?   // Store parser errors for debugging
+  parserError String? // Store parser errors for debugging
 
   receiptDocuments ReceiptDocument[]
 
@@ -275,36 +292,35 @@ model EmailTransaction {
 }
 
 model ReceiptDocument {
-  id                  String   @id @default(cuid())
-  userId              String
-  emailTransactionId  String
-  emailTransaction    EmailTransaction @relation(fields: [emailTransactionId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  userId             String
+  emailTransactionId String
+  emailTransaction   EmailTransaction @relation(fields: [emailTransactionId], references: [id], onDelete: Cascade)
 
-  filename            String
-  contentType         String
-  storagePath         String // URL or S3 path
-  sizeBytes           Int
+  filename    String
+  contentType String
+  storagePath String // URL or S3 path
+  sizeBytes   Int
 
-  createdAt           DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId, emailTransactionId])
 }
 
 model SubscriptionPayment {
-  id              String   @id @default(cuid())
-  userId          String
-  subscriptionId  String
+  id             String @id @default(cuid())
+  userId         String
+  subscriptionId String
 
-  paidAt          DateTime
-  amountCents     Int
-  currency        String   @default("CAD")
-  notes           String?
+  paidAt      DateTime
+  amountCents Int
+  currency    String   @default("CAD")
+  notes       String?
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId, subscriptionId, paidAt])
 }
-
 
 enum BillOccurrenceStatus {
   DUE
@@ -312,16 +328,16 @@ enum BillOccurrenceStatus {
 }
 
 model BillOccurrence {
-  id        String               @id @default(cuid())
-  userId    String
-  billId    String
-  bill      Bill                 @relation(fields: [billId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  billId String
+  bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
 
-  dueDate   DateTime
-  status    BillOccurrenceStatus @default(DUE)
-  paidAt    DateTime?
+  dueDate     DateTime
+  status      BillOccurrenceStatus @default(DUE)
+  paidAt      DateTime?
   amountCents Int?
-  currency  String @default("CAD")
+  currency    String               @default("CAD")
 
   createdAt DateTime @default(now())
 
@@ -329,6 +345,7 @@ model BillOccurrence {
   @@index([userId, dueDate])
   @@index([userId, status])
 }
+
 enum NotificationType {
   SUBSCRIPTION_RENEWAL_SOON
   RETURN_DEADLINE_SOON
@@ -351,64 +368,65 @@ enum NotificationJobStatus {
 }
 
 model Notification {
-  id           String           @id @default(cuid())
-  userId       String
+  id     String @id @default(cuid())
+  userId String
 
-  type         NotificationType
-  title        String
-  body         String?
+  type  NotificationType
+  title String
+  body  String?
 
   // Date of the underlying event (renewal/return/bill/refund-check)
-  eventDate    DateTime?
+  eventDate DateTime?
 
   // Date we intended to notify (usually "today" when cron runs)
   scheduledFor DateTime
 
   // Source reference
-  sourceKind   String
-  sourceId     String
+  sourceKind String
+  sourceId   String
 
   // Deterministic key to dedupe notifications
-  eventKey     String
+  eventKey String
 
-  readAt       DateTime?
-  dismissedAt  DateTime?
-  emailedAt    DateTime?
+  readAt      DateTime?
+  dismissedAt DateTime?
+  emailedAt   DateTime?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  jobs         NotificationJob[]
+  jobs NotificationJob[]
 
   @@unique([userId, eventKey])
   @@index([userId, scheduledFor])
   @@index([userId, readAt])
   @@index([userId, dismissedAt])
 }
-model NotificationJob {
-  id          String               @id @default(cuid())
-  userId      String
-  channel     NotificationChannel
-  status      NotificationJobStatus @default(PENDING)
 
-  sendAt      DateTime             // when it should be sent (UTC)
-  attempts    Int                  @default(0)
-  lastError   String?
-  sentAt      DateTime?
+model NotificationJob {
+  id      String                @id @default(cuid())
+  userId  String
+  channel NotificationChannel
+  status  NotificationJobStatus @default(PENDING)
+
+  sendAt    DateTime // when it should be sent (UTC)
+  attempts  Int       @default(0)
+  lastError String?
+  sentAt    DateTime?
 
   // concurrency / claiming
-  lockedAt    DateTime?
-  lockId      String?              // random run id
+  lockedAt DateTime?
+  lockId   String? // random run id
 
   // tie back to what this job is about
   notificationId String?
-  notification   Notification?     @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  notification   Notification? @relation(fields: [notificationId], references: [id], onDelete: SetNull)
 
   // dedupe: one job per "thing" per channel per sendAt bucket
-  dedupeKey   String
+  dedupeKey String
 
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, dedupeKey])
   @@index([status, sendAt])
@@ -416,25 +434,25 @@ model NotificationJob {
 }
 
 model NotificationPreference {
-  userId            String  @id
+  userId             String  @id
   emailDigestEnabled Boolean @default(false)
-  timezone          String  @default("America/Toronto")
-  digestHourLocal   Int     @default(9)   // 0..23
-  windowDays        Int     @default(14)
-  subLeadDays       Int     @default(3)
-  returnLeadDays    Int     @default(2)
-  billLeadDays      Int     @default(2)
-  primaryEmail      String?
+  timezone           String  @default("America/Toronto")
+  digestHourLocal    Int     @default(9) // 0..23
+  windowDays         Int     @default(14)
+  subLeadDays        Int     @default(3)
+  returnLeadDays     Int     @default(2)
+  billLeadDays       Int     @default(2)
+  primaryEmail       String?
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DigestSendLog {
-  id          String   @id @default(cuid())
-  userId      String
-  dateLocal   String   // "YYYY-MM-DD" in user’s timezone
-  sentAt      DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  dateLocal String // "YYYY-MM-DD" in user’s timezone
+  sentAt    DateTime @default(now())
 
   // Idempotency
   @@unique([userId, dateLocal])
@@ -442,10 +460,10 @@ model DigestSendLog {
 }
 
 model DigestRun {
-  id        String   @id @default(cuid())
-  userId    String
-  digestDate String  // user's local date "YYYY-MM-DD"
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  digestDate String // user's local date "YYYY-MM-DD"
+  createdAt  DateTime @default(now())
 
   @@unique([userId, digestDate])
   @@index([userId, digestDate])

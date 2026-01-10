@@ -12,8 +12,18 @@ const grotesk = Space_Grotesk({ variable: "--font-grotesk", subsets: ["latin"] }
 const jetbrains = JetBrains_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Returns & Subscriptions",
-  description: "Track returns and subscription renewals",
+  title: "Looply",
+  description: "Stay in the Loop",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
+  openGraph: {
+    title: "Looply",
+    description: "Stay in the Loop.",
+    images: ["/favicon.png"],
+  },
 };
 
 export default function RootLayout({

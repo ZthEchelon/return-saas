@@ -1,12 +1,8 @@
-// Client-side calendar: renders month grid, fetches events per month, and shows an info drawer.
-
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CalendarEvent } from "@/lib/events";
 import { formatMoney } from "@/lib/events";
-
 
 type Props = {
   initialStart: string;
@@ -14,11 +10,11 @@ type Props = {
   initialEvents: CalendarEvent[];
 };
 
+type ViewMode = "agenda" | "month";
 
-
+type BucketKey = "today" | "thisWeek" | "nextWeek" | "later";
 
 function parseISODateOnly(s: string) {
-  // s is YYYY-MM-DD
   const [y, m, d] = s.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
@@ -35,46 +31,45 @@ function addMonthsUTC(d: Date, delta: number) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + delta, 1));
 }
 
-function weekdayIndexUTC(d: Date) {
-  // 0=Sun..6=Sat
+function addDaysUTC(d: Date, delta: number) {
+  const next = new Date(d);
+  next.setUTCDate(next.getUTCDate() + delta);
+  return next;
+}
+
+function weekdayUTC(d: Date) {
   return d.getUTCDay();
 }
 
 function daysInMonthUTC(d: Date) {
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth();
-  // day 0 of next month = last day of this month
-  return new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
 }
 
 function buildMonthGrid(month: Date) {
   const first = startOfMonthUTC(month);
-  const leading = weekdayIndexUTC(first);
-  const totalDays = daysInMonthUTC(first);
-
+  const leading = weekdayUTC(first);
+  const days = daysInMonthUTC(first);
   const cells: { date: Date; inMonth: boolean }[] = [];
 
-  // leading days
-  for (let i = 0; i < leading; i++) {
+  for (let i = leading - 1; i >= 0; i--) {
     const d = new Date(first);
-    d.setUTCDate(d.getUTCDate() - (leading - i));
+    d.setUTCDate(first.getUTCDate() - (i + 1));
     cells.push({ date: d, inMonth: false });
   }
-
-  // month days
-  for (let day = 1; day <= totalDays; day++) {
+  for (let day = 1; day <= days; day++) {
     cells.push({ date: new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), day)), inMonth: true });
   }
-
-  // trailing to fill 6 weeks (42 cells) for stable layout
   while (cells.length < 42) {
     const last = cells[cells.length - 1].date;
-    const d = new Date(last);
-    d.setUTCDate(d.getUTCDate() + 1);
-    cells.push({ date: d, inMonth: false });
+    cells.push({ date: addDaysUTC(last, 1), inMonth: false });
   }
-
   return cells;
+}
+
+function daysBetween(aISO: string, bISO: string) {
+  const a = parseISODateOnly(aISO).getTime();
+  const b = parseISODateOnly(bISO).getTime();
+  return Math.round((b - a) / 86_400_000);
 }
 
 async function loadEvents(start: string, end: string): Promise<CalendarEvent[]> {
@@ -84,1327 +79,709 @@ async function loadEvents(start: string, end: string): Promise<CalendarEvent[]> 
   return (data.events ?? []) as CalendarEvent[];
 }
 
+function humanLabel(ev: CalendarEvent) {
+  switch (ev.type) {
+    case "BILL_DUE":
+      return "Bill due";
+    case "RENEWAL":
+      return "Renews";
+    case "CANCELLED_SUBSCRIPTION":
+      return "Cancelled";
+    case "RETURN_DEADLINE":
+      return "Return by";
+    case "REFUND_CHECK":
+      return "Refund check";
+    case "REFUND_EXPECTED":
+      return "Refund expected";
+    case "REFUNDED":
+      return "Refunded";
+    default:
+      return ev.type.replaceAll("_", " ").toLowerCase();
+  }
+}
+
+function urgency(ev: CalendarEvent, todayISO: string) {
+  const delta = daysBetween(todayISO, ev.date);
+  if (delta === 0) return { label: "Today", tone: "text-amber-100" };
+  if (delta < 0) return { label: `${Math.abs(delta)}d overdue`, tone: "text-rose-100" };
+  if (delta === 1) return { label: "Tomorrow", tone: "text-emerald-100" };
+  return { label: `In ${delta}d`, tone: "text-slate-200" };
+}
+
+function typeTone(ev: CalendarEvent) {
+  switch (ev.type) {
+    case "BILL_DUE":
+      return ev.billStatus === "PAID" ? "border-emerald-300/40 bg-emerald-500/10" : "border-indigo-300/40 bg-indigo-500/10";
+    case "RENEWAL":
+      return "border-emerald-300/40 bg-emerald-500/10";
+    case "CANCELLED_SUBSCRIPTION":
+      return "border-slate-300/30 bg-slate-800/60";
+    case "RETURN_DEADLINE":
+      return "border-cyan-300/40 bg-cyan-500/10";
+    case "REFUND_CHECK":
+    case "REFUND_EXPECTED":
+      return "border-amber-300/40 bg-amber-500/10";
+    case "REFUNDED":
+      return "border-emerald-300/40 bg-emerald-500/10";
+    default:
+      return "border-white/15 bg-white/5";
+  }
+}
+
+function typePill(ev: CalendarEvent) {
+  switch (ev.type) {
+    case "BILL_DUE":
+      return ev.billStatus === "PAID"
+        ? "bg-emerald-400/25 text-emerald-50"
+        : "bg-indigo-500/25 text-indigo-100";
+    case "RENEWAL":
+      return "bg-emerald-500/20 text-emerald-100";
+    case "CANCELLED_SUBSCRIPTION":
+      return "bg-slate-500/25 text-slate-100";
+    case "RETURN_DEADLINE":
+      return "bg-cyan-500/20 text-cyan-100";
+    case "REFUND_CHECK":
+    case "REFUND_EXPECTED":
+      return "bg-amber-500/20 text-amber-100";
+    case "REFUNDED":
+      return "bg-emerald-400/25 text-emerald-50";
+    default:
+      return "bg-white/15 text-slate-100";
+  }
+}
+
+function editLinkFor(ev: CalendarEvent) {
+  if (ev.source.kind === "bill") return `/dashboard/bills/${ev.source.sourceId}`;
+  if (ev.source.kind === "subscription") return `/dashboard/subscriptions/${ev.source.sourceId}`;
+  if (ev.source.kind === "return") return `/dashboard/returns/${ev.source.sourceId}`;
+  return "#";
+}
+
 export default function CalendarClient({ initialStart, initialEnd, initialEvents }: Props) {
+  const [view, setView] = useState<ViewMode>("agenda");
   const [month, setMonth] = useState(() => startOfMonthUTC(parseISODateOnly(initialStart)));
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
-  const [selected, setSelected] = useState<CalendarEvent | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  // Filter state
+
   const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set(["BILL", "SUBSCRIPTION", "RETURN"]));
   const [autopayOnly, setAutopayOnly] = useState(false);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  const [showAddBill, setShowAddBill] = useState(false);
-  const [payAmount, setPayAmount] = useState<string>(""); // dollars input like "120.50"
-  const [payNotes, setPayNotes] = useState<string>("");
-  const [payLoading, setPayLoading] = useState(false);
-  const [showAddSub, setShowAddSub] = useState(false);
-  const [showAddReturn, setShowAddReturn] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [billEdit, setBillEdit] = useState({ name: "", amount: "", dueDay: "", autopay: false });
-  const [subEdit, setSubEdit] = useState({ name: "", amount: "", renewalDate: "" });
-  const [returnEdit, setReturnEdit] = useState({ store: "", itemNote: "", amount: "", purchaseDate: "", returnBy: "", trackingNumber: "" });
 
-  useEffect(() => {
-    if (!selected) return;
-
-    if (selected.type === "BILL_DUE") {
-      if (selected.amountCents != null) {
-        setPayAmount((selected.amountCents / 100).toFixed(2));
-      } else {
-        setPayAmount("");
-      }
-      setPayNotes(selected.autopay ? "autopay" : "");
-    } else {
-      setPayAmount("");
-      setPayNotes("");
-    }
-  }, [selected?.id]);
-
-  useEffect(() => {
-    if (!selected) {
-      setBillEdit({ name: "", amount: "", dueDay: "", autopay: false });
-      setSubEdit({ name: "", amount: "", renewalDate: "" });
-      setReturnEdit({ store: "", itemNote: "", amount: "", purchaseDate: "", returnBy: "", trackingNumber: "" });
-      return;
-    }
-
-    if (selected.type === "BILL_DUE") {
-      setBillEdit({
-        name: selected.title,
-        amount: selected.amountCents != null ? (selected.amountCents / 100).toFixed(2) : "",
-        dueDay: selected.date.slice(-2),
-        autopay: Boolean(selected.autopay),
-      });
-    }
-
-    if (selected.type === "RENEWAL" || selected.type === "CANCELLED_SUBSCRIPTION") {
-      setSubEdit({
-        name: selected.title.replace(/ cancelled$/i, ""),
-        amount: selected.amountCents != null ? (selected.amountCents / 100).toFixed(2) : "",
-        renewalDate: selected.date,
-      });
-    }
-
-    if (selected.source.kind === "return") {
-      const [store, note] = selected.title.split(" — ");
-      setReturnEdit({
-        store: store ?? "",
-        itemNote: note ?? "",
-        amount: selected.amountCents != null ? (selected.amountCents / 100).toFixed(2) : "",
-        purchaseDate: selected.purchaseDate ?? "",
-        returnBy: selected.returnBy ?? selected.date,
-        trackingNumber: selected.trackingNumber ?? "",
-      });
-    }
-  }, [selected]);
-
-  useEffect(() => {
-    // initial load for the current month
-    const start = initialStart;
-    const end = initialEnd;
-
-    loadEvents(start, end).then(setEvents).catch(() => setEvents([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const grid = useMemo(() => buildMonthGrid(month), [month]);
-
-  // Apply filters
-  const filteredEvents = useMemo(() => {
-    const now = new Date();
-    const today = toISODateOnlyUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
-    
-    return events.filter(e => {
-      // Type filter
-      let matchesType = false;
-      if (filterTypes.has("BILL") && e.type === "BILL_DUE") matchesType = true;
-      if (filterTypes.has("SUBSCRIPTION") && (e.type === "RENEWAL" || e.type === "CANCELLED_SUBSCRIPTION")) matchesType = true;
-      if (filterTypes.has("RETURN") && (e.type === "RETURN_DEADLINE" || e.type === "REFUND_CHECK" || e.type === "REFUND_EXPECTED" || e.type === "REFUNDED")) matchesType = true;
-      if (!matchesType) return false;
-
-      // Autopay filter
-      if (autopayOnly && !e.autopay) return false;
-
-      // Overdue filter
-      if (overdueOnly) {
-        if (e.type === "BILL_DUE" && e.billStatus !== "PAID" && e.date < today) {
-          // Overdue unpaid bill
-        } else if (e.type === "RETURN_DEADLINE" && e.date < today) {
-          // Overdue return
-        } else {
-          return false;
-        }
-      }
-
-      // Search filter (merchant/store)
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const title = e.title.toLowerCase();
-        if (!title.includes(query)) return false;
-      }
-
-      return true;
-    });
-  }, [events, filterTypes, autopayOnly, overdueOnly, searchQuery]);
-
-  const eventsByDate = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
-    for (const e of filteredEvents) {
-      if (!map.has(e.date)) map.set(e.date, []);
-      map.get(e.date)!.push(e);
-    }
-    for (const [k, arr] of map) {
-      arr.sort((a, b) => a.type.localeCompare(b.type));
-      map.set(k, arr);
-    }
-    return map;
-  }, [filteredEvents]);
-
-  const upcoming = useMemo(() => {
-    const now = new Date();
-    const today = toISODateOnlyUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
-    return [...filteredEvents]
-      .filter(e => e.date >= today)
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.type.localeCompare(b.type)))
-      .slice(0, 12);
-  }, [filteredEvents]);
-
-  const monthStartISO = useMemo(() => toISODateOnlyUTC(startOfMonthUTC(month)), [month]);
-  const monthEndISO = useMemo(() => toISODateOnlyUTC(addMonthsUTC(month, 1)), [month]);
-
-  const completed = useMemo(() => {
-    return filteredEvents
-      .filter(e => e.date >= monthStartISO && e.date < monthEndISO)
-      .filter(
-        e =>
-          (e.type === "BILL_DUE" && e.billStatus === "PAID") ||
-          e.type === "REFUNDED" ||
-          e.type === "CANCELLED_SUBSCRIPTION"
-      )
-      .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
-  }, [events, monthStartISO, monthEndISO]);
-
-  async function goTo(deltaMonths: number) {
-    const next = addMonthsUTC(month, deltaMonths);
-    setMonth(next);
-
-    const start = toISODateOnlyUTC(startOfMonthUTC(next));
-    const end = toISODateOnlyUTC(addMonthsUTC(next, 1));
-    // Pull fresh events for the visible month window.
-    const nextEvents = await loadEvents(start, end);
-    setEvents(nextEvents);
-    setSelected(null);
-  }
-
-  const monthLabel = useMemo(() => {
-    return new Intl.DateTimeFormat("en-CA", { month: "long", year: "numeric", timeZone: "UTC" }).format(month);
-  }, [month]);
+  const [payInputs, setPayInputs] = useState<Record<string, string>>({});
+  const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
+  const [snoozeDays, setSnoozeDays] = useState(3);
+  const [banner, setBanner] = useState<string | null>(null);
 
   const todayISO = useMemo(() => {
     const now = new Date();
     return toISODateOnlyUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
   }, []);
 
-  const typePills: Record<CalendarEvent["type"], string> = {
-    RENEWAL: "bg-emerald-500/20 text-emerald-100",
-    RETURN_DEADLINE: "bg-cyan-500/20 text-cyan-100",
-    REFUND_CHECK: "bg-amber-400/25 text-amber-50",
-    REFUND_EXPECTED: "bg-amber-400/25 text-amber-50",
-    REFUNDED: "bg-emerald-400/25 text-emerald-50",
-    CANCELLED_SUBSCRIPTION: "bg-slate-500/25 text-slate-100",
-    BILL_DUE: "bg-indigo-500/20 text-indigo-100",
-  };
+  const monthGrid = useMemo(() => buildMonthGrid(month), [month]);
 
-  const cardBg: Record<CalendarEvent["type"], string> = {
-    RENEWAL: "border border-emerald-300/25 bg-emerald-500/10",
-    RETURN_DEADLINE: "border border-cyan-300/25 bg-cyan-500/10",
-    REFUND_CHECK: "border border-amber-300/25 bg-amber-400/10",
-    REFUND_EXPECTED: "border border-amber-300/25 bg-amber-400/10",
-    REFUNDED: "border border-emerald-300/25 bg-emerald-500/10",
-    CANCELLED_SUBSCRIPTION: "border border-slate-400/30 bg-slate-800/60",
-    BILL_DUE: "border border-indigo-300/25 bg-indigo-500/10",
-  };
+  // Fetch for visible 42-day window
+  const fetchWindow = useMemo(() => {
+    const start = toISODateOnlyUTC(monthGrid[0]?.date ?? startOfMonthUTC(month));
+    const end = toISODateOnlyUTC(addDaysUTC(monthGrid[41]?.date ?? month, 1));
+    return { start, end };
+  }, [monthGrid, month]);
 
-  function pillClass(ev: CalendarEvent) {
-    if (ev.type === "BILL_DUE") {
-      return ev.billStatus === "PAID"
-        ? "bg-emerald-400/25 text-emerald-50"
-        : "bg-indigo-500/25 text-indigo-100";
-    }
-    return typePills[ev.type];
-  }
-
-  function cardClass(ev: CalendarEvent) {
-    if (ev.type === "BILL_DUE") {
-      return ev.billStatus === "PAID" ? "border border-emerald-300/25 bg-emerald-500/10" : "border border-indigo-300/25 bg-indigo-500/10";
-    }
-    return cardBg[ev.type];
-  }
-
-  async function seedDemo() {
+  useEffect(() => {
+    let active = true;
     setLoading(true);
-    try {
-      await fetch("/api/dev/seed", { method: "POST" });
-      // reload events for the currently visible month
-      const start = toISODateOnlyUTC(startOfMonthUTC(month));
-      const end = toISODateOnlyUTC(addMonthsUTC(month, 1));
-      const nextEvents = await loadEvents(start, end);
-      setEvents(nextEvents);
-    } finally {
-      setLoading(false);
+    loadEvents(fetchWindow.start, fetchWindow.end)
+      .then(next => {
+        if (active) setEvents(next);
+      })
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [fetchWindow.start, fetchWindow.end]);
+
+  // Filtering
+  const filteredEvents = useMemo(() => {
+    return events
+      .filter(e => !snoozedIds.has(e.id))
+      .filter(e => {
+      let typeMatch = false;
+      if (filterTypes.has("BILL") && e.type === "BILL_DUE") typeMatch = true;
+      if (filterTypes.has("SUBSCRIPTION") && (e.type === "RENEWAL" || e.type === "CANCELLED_SUBSCRIPTION")) typeMatch = true;
+      if (filterTypes.has("RETURN") && (e.type === "RETURN_DEADLINE" || e.type === "REFUND_CHECK" || e.type === "REFUND_EXPECTED" || e.type === "REFUNDED")) typeMatch = true;
+      if (!typeMatch) return false;
+
+      if (autopayOnly && e.type === "BILL_DUE" && !e.autopay) return false;
+
+      if (overdueOnly) {
+        if (e.date >= todayISO) return false;
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        if (!e.title.toLowerCase().includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [events, filterTypes, autopayOnly, overdueOnly, searchQuery, todayISO, snoozedIds]);
+
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const ev of filteredEvents) {
+      if (!map.has(ev.date)) map.set(ev.date, []);
+      map.get(ev.date)!.push(ev);
     }
-  }
+    for (const [, arr] of map) {
+      arr.sort((a, b) => (a.date === b.date ? a.type.localeCompare(b.type) : a.date.localeCompare(b.date)));
+    }
+    return map;
+  }, [filteredEvents]);
 
-  async function refreshMonth() {
-    const start = toISODateOnlyUTC(startOfMonthUTC(month));
-    const end = toISODateOnlyUTC(addMonthsUTC(month, 1));
-    const nextEvents = await loadEvents(start, end);
-    setEvents(nextEvents);
-    return nextEvents;
-  }
+  const agendaBuckets = useMemo(() => {
+    const buckets: Record<BucketKey, CalendarEvent[]> = {
+      today: [],
+      thisWeek: [],
+      nextWeek: [],
+      later: [],
+    };
+    for (const ev of filteredEvents) {
+      const delta = daysBetween(todayISO, ev.date);
+      if (delta < 0) continue;
+      if (delta === 0) buckets.today.push(ev);
+      else if (delta <= 7) buckets.thisWeek.push(ev);
+      else if (delta <= 14) buckets.nextWeek.push(ev);
+      else if (delta <= 30) buckets.later.push(ev);
+    }
+    for (const key of Object.keys(buckets) as BucketKey[]) {
+      buckets[key].sort((a, b) => (a.date === b.date ? a.type.localeCompare(b.type) : a.date.localeCompare(b.date)));
+    }
+    return buckets;
+  }, [filteredEvents, todayISO]);
 
-  async function markBill(ev: CalendarEvent, mark: "PAID" | "DUE") {
-    if (ev.type !== "BILL_DUE") return;
+  const totals = useMemo(() => {
+    const weekEnd = toISODateOnlyUTC(addDaysUTC(parseISODateOnly(todayISO), 7));
+    const monthEnd = toISODateOnlyUTC(addMonthsUTC(parseISODateOnly(todayISO), 1));
+    const inRange = (endISO: string) =>
+      filteredEvents.filter(e => e.date >= todayISO && e.date < endISO && e.amountCents != null).reduce((sum, e) => sum + (e.amountCents ?? 0), 0);
+    return {
+      weekAmount: inRange(weekEnd),
+      monthAmount: inRange(monthEnd),
+    };
+  }, [filteredEvents, todayISO]);
 
-    setPayLoading(true);
+  const handleGoMonth = async (delta: number) => {
+    setMonth(m => addMonthsUTC(m, delta));
+    setSelectedDay(null);
+  };
+
+  const onSelectDay = (iso: string) => {
+    setSelectedDay(iso);
+    setSelectedEvent(null);
+  };
+
+  const setPayInput = useCallback((id: string, value: string) => setPayInputs(prev => ({ ...prev, [id]: value })), []);
+  const setTrackingInput = useCallback((id: string, value: string) => setTrackingInputs(prev => ({ ...prev, [id]: value })), []);
+
+  const refresh = useCallback(async () => {
+    const next = await loadEvents(fetchWindow.start, fetchWindow.end);
+    setEvents(next);
+    return next;
+  }, [fetchWindow.start, fetchWindow.end]);
+
+  const actionWrap = useCallback(async (id: string, fn: () => Promise<void>) => {
+    setActionLoading(id);
     try {
-      const dollars = payAmount.trim();
-      const amountCents =
-        dollars.length > 0 ? Math.round(Number(dollars) * 100) : undefined;
+      await fn();
+      await refresh();
+    } finally {
+      setActionLoading(null);
+    }
+  }, [refresh]);
 
+  // Quick actions
+  const markBill = (ev: CalendarEvent, mark: "PAID" | "DUE") => {
+    if (ev.type !== "BILL_DUE") return;
+    return actionWrap(ev.id, async () => {
+      const input = payInputs[ev.id];
+      const cents = input && input.trim().length ? Math.round(Number(input) * 100) : undefined;
       await fetch(`/api/bills/${ev.source.sourceId}/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dueDate: ev.date,
-          mark,
-          amountCents: Number.isFinite(amountCents) ? amountCents : undefined,
-          notes: payNotes.trim() || undefined,
-        }),
+        body: JSON.stringify({ dueDate: ev.date, mark, amountCents: Number.isFinite(cents) ? cents : undefined }),
       });
+    });
+  };
 
-      const next = await refreshMonth();
-      setSelected(next.find(x => x.id === ev.id) ?? null);
-
-      // reset inputs after marking paid
-      setPayAmount("");
-      setPayNotes("");
-    } finally {
-      setPayLoading(false);
-    }
-  }
-
-  async function cancelSubscription(ev: CalendarEvent) {
+  const cancelSubscription = (ev: CalendarEvent) => {
     if (ev.type !== "RENEWAL") return;
-
-    setPayLoading(true);
-    try {
+    return actionWrap(ev.id, async () => {
       await fetch(`/api/subscriptions/${ev.source.sourceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "CANCELLED" }),
       });
+    });
+  };
 
-      const next = await refreshMonth();
-      setSelected(next.find(x => x.source.sourceId === ev.source.sourceId && x.type === "RENEWAL") ?? null);
-    } finally {
-      setPayLoading(false);
-    }
-  }
-
-  async function markDroppedOff(ev: CalendarEvent) {
+  const markDroppedOff = (ev: CalendarEvent) => {
     if (ev.type !== "RETURN_DEADLINE") return;
-
-    const trackingInput = typeof window !== "undefined" ? window.prompt("Tracking number (optional)") : null;
-    const trackingNumber = trackingInput && trackingInput.trim().length > 0 ? trackingInput.trim() : null;
-
-    setPayLoading(true);
-    try {
+    return actionWrap(ev.id, async () => {
+      const tracking = trackingInputs[ev.id]?.trim();
       await fetch(`/api/returns/${ev.source.sourceId}/mark-returned`, {
         method: "POST",
-        headers: trackingNumber ? { "Content-Type": "application/json" } : undefined,
-        body: trackingNumber ? JSON.stringify({ trackingNumber }) : undefined,
+        headers: tracking ? { "Content-Type": "application/json" } : undefined,
+        body: tracking ? JSON.stringify({ trackingNumber: tracking }) : undefined,
       });
+    });
+  };
 
-      const next = await refreshMonth();
-      // you might still keep the deadline event; refund checks will show once dropoff is set
-      setSelected(next.find(x => x.source.sourceId === ev.source.sourceId) ?? null);
-    } finally {
-      setPayLoading(false);
-    }
-  }
-
-  async function markRefunded(ev: CalendarEvent) {
-    if (ev.source.kind !== "return") return;
-
-    setPayLoading(true);
-    try {
+  const markRefunded = (ev: CalendarEvent) => {
+    if (ev.type !== "REFUND_CHECK" && ev.type !== "REFUND_EXPECTED" && ev.type !== "RETURN_DEADLINE") return;
+    return actionWrap(ev.id, async () => {
       await fetch(`/api/returns/${ev.source.sourceId}/mark-refunded`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          refundAmountCents: ev.amountCents ?? undefined,
-        }),
+        body: JSON.stringify({ refundAmountCents: ev.amountCents ?? undefined }),
       });
+    });
+  };
 
-      const next = await refreshMonth();
-      setSelected(next.find(x => x.source.sourceId === ev.source.sourceId) ?? null);
-    } finally {
-      setPayLoading(false);
-    }
-  }
-
-  async function saveBillEdit() {
-    if (!selected || selected.type !== "BILL_DUE") return;
-    setEditLoading(true);
-    try {
-      const amountCents = billEdit.amount.trim().length ? Math.round(Number(billEdit.amount) * 100) : undefined;
-      const dueDay = Number(billEdit.dueDay);
-      await fetch(`/api/bills/${selected.source.sourceId}`, {
-        method: "PATCH",
+  const snooze = (ev: CalendarEvent) => {
+    return actionWrap(ev.id, async () => {
+      await fetch("/api/events/snooze", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: billEdit.name,
-          amountCents: Number.isFinite(amountCents) ? amountCents : undefined,
-          dueDayOfMonth: Number.isFinite(dueDay) ? dueDay : undefined,
-          autopay: billEdit.autopay,
-        }),
+        body: JSON.stringify({ id: ev.id, type: ev.type, date: ev.date, delayDays: snoozeDays, source: ev.source }),
       });
-      const next = await refreshMonth();
-      setSelected(next.find(x => x.id === selected.id) ?? null);
-    } finally {
-      setEditLoading(false);
-    }
-  }
+      setSnoozedIds(prev => {
+        const next = new Set(prev);
+        next.add(ev.id);
+        return next;
+      });
+      setBanner(`Snoozed ${ev.title} for ${snoozeDays} day${snoozeDays === 1 ? "" : "s"}`);
+      setTimeout(() => setBanner(null), 3000);
+    });
+  };
 
-  async function saveSubEdit() {
-    if (!selected || (selected.type !== "RENEWAL" && selected.type !== "CANCELLED_SUBSCRIPTION")) return;
-    setEditLoading(true);
-    try {
-      const amountCents = subEdit.amount.trim().length ? Math.round(Number(subEdit.amount) * 100) : undefined;
-      await fetch(`/api/subscriptions/${selected.source.sourceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: subEdit.name,
-          amountCents: Number.isFinite(amountCents) ? amountCents : undefined,
-          renewalDate: subEdit.renewalDate ? `${subEdit.renewalDate}T00:00:00.000Z` : undefined,
-          status: "ACTIVE",
-        }),
-      });
-      const next = await refreshMonth();
-      setSelected(next.find(x => x.source.sourceId === selected.source.sourceId && x.type === "RENEWAL") ?? null);
-    } finally {
-      setEditLoading(false);
-    }
-  }
+  // UI helpers
+  const renderEventRow = (ev: CalendarEvent) => {
+    const urg = urgency(ev, todayISO);
+    return (
+      <div key={ev.id} className={`rounded-xl border px-3 py-3 text-sm shadow-sm ${typeTone(ev)}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate font-semibold text-white">{ev.title}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${typePill(ev)}`}>{humanLabel(ev)}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-100">
+              <span>{ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}</span>
+              <span className={`text-[11px] ${urg.tone}`}>{urg.label}</span>
+              {ev.type === "BILL_DUE" && ev.autopay ? <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">autopay</span> : null}
+            </div>
+          </div>
+          <button
+            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[11px] text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10"
+            onClick={() => setSelectedEvent(ev)}
+          >
+            Details
+          </button>
+        </div>
 
-  async function saveReturnEdit() {
-    if (!selected || selected.source.kind !== "return") return;
-    setEditLoading(true);
-    try {
-      const amountCents = returnEdit.amount.trim().length ? Math.round(Number(returnEdit.amount) * 100) : undefined;
-      await fetch(`/api/returns/${selected.source.sourceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          store: returnEdit.store,
-          itemNote: returnEdit.itemNote || null,
-          amountCents: Number.isFinite(amountCents) ? amountCents : null,
-          purchaseDate: returnEdit.purchaseDate ? `${returnEdit.purchaseDate}T00:00:00.000Z` : undefined,
-          returnBy: returnEdit.returnBy ? `${returnEdit.returnBy}T00:00:00.000Z` : undefined,
-          trackingNumber: returnEdit.trackingNumber || null,
-        }),
-      });
-      const next = await refreshMonth();
-      setSelected(next.find(x => x.source.sourceId === selected.source.sourceId && x.type === selected.type) ?? null);
-    } finally {
-      setEditLoading(false);
-    }
-  }
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-100">
+          {ev.type === "BILL_DUE" ? (
+            <>
+              <input
+                value={payInputs[ev.id] ?? ""}
+                onChange={e => setPayInput(ev.id, e.target.value)}
+                placeholder="Amount (optional)"
+                className="w-32 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[11px]"
+              />
+              <button
+                className="rounded-full border border-emerald-200/50 bg-emerald-500/20 px-3 py-1 font-semibold text-emerald-50 hover:-translate-y-0.5 transition"
+                disabled={actionLoading === ev.id}
+                onClick={() => markBill(ev, ev.billStatus === "PAID" ? "DUE" : "PAID")}
+              >
+                {actionLoading === ev.id ? "Saving…" : ev.billStatus === "PAID" ? "Mark Due" : "Mark Paid"}
+              </button>
+            </>
+          ) : null}
+
+          {ev.type === "RENEWAL" ? (
+            <button
+              className="rounded-full border border-rose-200/50 bg-rose-500/20 px-3 py-1 font-semibold text-rose-50 hover:-translate-y-0.5 transition"
+              disabled={actionLoading === ev.id}
+              onClick={() => cancelSubscription(ev)}
+            >
+              {actionLoading === ev.id ? "Saving…" : "Cancel"}
+            </button>
+          ) : null}
+
+          {ev.type === "RETURN_DEADLINE" ? (
+            <>
+              <input
+                value={trackingInputs[ev.id] ?? ""}
+                onChange={e => setTrackingInput(ev.id, e.target.value)}
+                placeholder="Tracking #"
+                className="w-36 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-[11px]"
+              />
+              <button
+                className="rounded-full border border-cyan-200/50 bg-cyan-500/20 px-3 py-1 font-semibold text-cyan-50 hover:-translate-y-0.5 transition"
+                disabled={actionLoading === ev.id}
+                onClick={() => markDroppedOff(ev)}
+              >
+                {actionLoading === ev.id ? "Saving…" : "Dropped off"}
+              </button>
+              <button
+                className="rounded-full border border-emerald-200/50 bg-emerald-500/20 px-3 py-1 font-semibold text-emerald-50 hover:-translate-y-0.5 transition"
+                disabled={actionLoading === ev.id}
+                onClick={() => markRefunded(ev)}
+              >
+                {actionLoading === ev.id ? "Saving…" : "Mark refunded"}
+              </button>
+            </>
+          ) : null}
+
+          {ev.type === "REFUND_CHECK" || ev.type === "REFUND_EXPECTED" ? (
+            <button
+              className="rounded-full border border-emerald-200/50 bg-emerald-500/20 px-3 py-1 font-semibold text-emerald-50 hover:-translate-y-0.5 transition"
+              disabled={actionLoading === ev.id}
+              onClick={() => markRefunded(ev)}
+            >
+              {actionLoading === ev.id ? "Saving…" : "Mark refunded"}
+            </button>
+          ) : null}
+
+          <button
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold text-slate-100 hover:-translate-y-0.5 transition"
+            disabled={actionLoading === ev.id}
+            onClick={() => snooze(ev)}
+          >
+            {actionLoading === ev.id ? "Snoozing…" : "Snooze"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const dayDrawerEvents = selectedDay ? eventsByDate.get(selectedDay) ?? [] : [];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[2.5fr_1fr] xl:grid-cols-[2.6fr_1fr]">
-      {/* Calendar */}
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/40">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-3xl font-semibold text-white">{monthLabel}</div>
-            <div className="text-sm text-slate-300">Renewals, return deadlines, refund checks, and bills.</div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => goTo(-1)}>
-              ← Prev
-            </button>
-            <button className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => goTo(1)}>
-              Next →
-            </button>
-            <button
-              className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-emerald-200/40 hover:bg-white/20"
-              onClick={seedDemo}
-              disabled={loading}
-              title="Insert demo subscription + return for this month"
-            >
-              {loading ? "Seeding…" : "Seed demo"}
-            </button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-3xl font-semibold text-white">Calendar</div>
+          <div className="text-sm text-slate-300">Agenda-first. Click a day to open its drawer; month view is navigation only.</div>
         </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
-          <span className="rounded-full bg-emerald-500/20 px-3 py-1 font-semibold text-emerald-100">Renewal</span>
-          <span className="rounded-full bg-cyan-500/20 px-3 py-1 font-semibold text-cyan-100">Return deadline</span>
-          <span className="rounded-full bg-amber-400/25 px-3 py-1 font-semibold text-amber-100">Refund check / expected</span>
-          <span className="rounded-full bg-emerald-400/30 px-3 py-1 font-semibold text-emerald-50">Refunded / paid</span>
-          <span className="rounded-full bg-slate-500/20 px-3 py-1 font-semibold text-slate-100">Cancelled</span>
-          <span className="rounded-full bg-indigo-500/20 px-3 py-1 font-semibold text-indigo-100">Bill due</span>
+        <div className="flex items-center gap-2">
+          <button
+            className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${view === "agenda" ? "border-cyan-200/60 bg-white/10 text-white" : "border-white/10 bg-white/5 text-slate-200"}`}
+            onClick={() => setView("agenda")}
+          >
+            Agenda
+          </button>
+          <button
+            className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${view === "month" ? "border-cyan-200/60 bg-white/10 text-white" : "border-white/10 bg-white/5 text-slate-200"}`}
+            onClick={() => setView("month")}
+          >
+            Month
+          </button>
         </div>
+      </div>
 
-        {/* Filter Controls */}
-        <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/20">
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-200">
-            <span>Filters:</span>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/30 space-y-3">
+        {banner ? (
+          <div className="rounded-xl border border-emerald-300/40 bg-emerald-500/15 px-3 py-2 text-sm font-semibold text-emerald-50">
+            {banner}
           </div>
-          
-          {/* Type filters */}
-          <div className="flex flex-wrap items-center gap-2">
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
+          <span className="font-semibold">Filters:</span>
+          {[
+            { key: "BILL", label: "Bills" },
+            { key: "SUBSCRIPTION", label: "Subs" },
+            { key: "RETURN", label: "Returns" },
+          ].map(f => (
             <button
+              key={f.key}
               onClick={() => {
                 const next = new Set(filterTypes);
-                if (next.has("BILL")) next.delete("BILL");
-                else next.add("BILL");
+                next.has(f.key) ? next.delete(f.key) : next.add(f.key);
                 setFilterTypes(next);
               }}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                filterTypes.has("BILL")
-                  ? "border-indigo-200/60 bg-indigo-500/20 text-indigo-50 shadow-indigo-500/20"
+                filterTypes.has(f.key)
+                  ? "border-cyan-200/60 bg-white/10 text-white"
                   : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
               }`}
             >
-              Bills {filterTypes.has("BILL") && "✓"}
+              {f.label} {filterTypes.has(f.key) ? "✓" : ""}
             </button>
-            <button
-              onClick={() => {
-                const next = new Set(filterTypes);
-                if (next.has("SUBSCRIPTION")) next.delete("SUBSCRIPTION");
-                else next.add("SUBSCRIPTION");
-                setFilterTypes(next);
-              }}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                filterTypes.has("SUBSCRIPTION")
-                  ? "border-emerald-200/60 bg-emerald-500/20 text-emerald-50 shadow-emerald-500/20"
-                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
-              }`}
-            >
-              Subscriptions {filterTypes.has("SUBSCRIPTION") && "✓"}
-            </button>
-            <button
-              onClick={() => {
-                const next = new Set(filterTypes);
-                if (next.has("RETURN")) next.delete("RETURN");
-                else next.add("RETURN");
-                setFilterTypes(next);
-              }}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                filterTypes.has("RETURN")
-                  ? "border-cyan-200/60 bg-cyan-500/20 text-cyan-50 shadow-cyan-500/20"
-                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
-              }`}
-            >
-              Returns {filterTypes.has("RETURN") && "✓"}
-            </button>
-            <button
-              onClick={() => setAutopayOnly(!autopayOnly)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                autopayOnly
-                  ? "border-violet-200/60 bg-violet-500/20 text-violet-50 shadow-violet-500/20"
-                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
-              }`}
-            >
-              Autopay only {autopayOnly && "✓"}
-            </button>
-            <button
-              onClick={() => setOverdueOnly(!overdueOnly)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                overdueOnly
-                  ? "border-rose-200/60 bg-rose-500/20 text-rose-50 shadow-rose-500/20"
-                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
-              }`}
-            >
-              Overdue only {overdueOnly && "✓"}
-            </button>
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search by merchant or store..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/60 focus:outline-none focus:ring-2 focus:ring-cyan-200/20"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-200">
-          <span className="text-slate-400">Add items to your calendar:</span>
-          <button
-            className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:border-cyan-200/40 hover:bg-white/20"
-            onClick={() => setShowAddBill(true)}
-          >
-            + Add Bill (due date)
-          </button>
-          <button
-            className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:border-emerald-200/40 hover:bg-white/20"
-            onClick={() => setShowAddSub(true)}
-          >
-            + Add Subscription (renewal)
-          </button>
-          <button
-            className="rounded-full border border-white/15 bg-white/10 px-3 py-1 transition hover:border-cyan-200/40 hover:bg-white/20"
-            onClick={() => setShowAddReturn(true)}
-          >
-            + Add Return (deadline)
-          </button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-7 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-            <div key={d} className="px-2 py-1">{d}</div>
           ))}
+          <button
+            onClick={() => setAutopayOnly(v => !v)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              autopayOnly
+                ? "border-violet-200/60 bg-violet-500/20 text-violet-50"
+                : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
+            }`}
+          >
+            Autopay (bills) {autopayOnly ? "✓" : ""}
+          </button>
+          <button
+            onClick={() => setOverdueOnly(v => !v)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              overdueOnly
+                ? "border-rose-200/60 bg-rose-500/20 text-rose-50"
+                : "border-white/10 bg-white/5 text-slate-200 hover-border-white/20 hover:bg-white/10"
+            }`}
+          >
+            Overdue {overdueOnly ? "✓" : ""}
+          </button>
+          <div className="ml-2 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-slate-200">
+            <span className="text-xs text-slate-300">Snooze for</span>
+            <select
+              className="rounded-md bg-slate-900/40 px-2 py-1 text-xs text-white focus:border-cyan-300/60 focus:outline-none"
+              value={snoozeDays}
+              onChange={e => setSnoozeDays(Number(e.target.value) || 3)}
+            >
+              {[1, 3, 7, 14].map(d => (
+                <option key={d} value={d}>{d}d</option>
+              ))}
+            </select>
+          </div>
         </div>
+        <div className="relative">
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by merchant/store"
+            className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/60 focus:outline-none focus:ring-2 focus:ring-cyan-200/20"
+          />
+          {searchQuery && (
+            <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" onClick={() => setSearchQuery("")}>✕</button>
+          )}
+        </div>
+        <div className="flex gap-3 text-xs text-slate-200">
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] text-slate-400">This week total</div>
+            <div className="text-sm font-semibold text-white">{totals.weekAmount ? formatMoney(totals.weekAmount, "CAD") : "—"}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] text-slate-400">This month total</div>
+            <div className="text-sm font-semibold text-white">{totals.monthAmount ? formatMoney(totals.monthAmount, "CAD") : "—"}</div>
+          </div>
+          {loading ? <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">Loading…</div> : null}
+        </div>
+      </div>
 
-        <div className="grid grid-cols-7 gap-3">
-          {grid.map(({ date, inMonth }) => {
-            const key = toISODateOnlyUTC(date);
-            const dayEvents = eventsByDate.get(key) ?? [];
-            const dayNum = date.getUTCDate();
-            const isToday = key === todayISO;
-            
-            // Count completed tasks for this day
-            const completedOnDay = dayEvents.filter(
-              e =>
-                (e.type === "BILL_DUE" && e.billStatus === "PAID") ||
-                e.type === "REFUNDED" ||
-                e.type === "CANCELLED_SUBSCRIPTION"
-            ).length;
-
+      {view === "agenda" ? (
+        <div className="space-y-4">
+          {([
+            ["today", "Today"],
+            ["thisWeek", "This Week"],
+            ["nextWeek", "Next Week"],
+            ["later", "Later"],
+          ] as [BucketKey, string][]).map(([key, label]) => {
+            const list = agendaBuckets[key];
             return (
-              <div
-                key={key}
-                className={`relative min-h-40 min-w-[160px] md:min-w-[180px] rounded-2xl border border-white/10 p-3 transition ${
-                  inMonth ? "bg-slate-900/60 hover:border-cyan-200/40" : "bg-slate-900/30 text-slate-500"
-                } ${isToday ? "ring-2 ring-cyan-400/80 ring-offset-2 ring-offset-slate-950" : ""}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className={`text-sm font-semibold ${isToday ? "text-white" : "text-slate-300"}`}>{dayNum}</div>
-                  <div className="flex items-center gap-1">
-                    {completedOnDay > 0 ? (
-                      <span className="text-base text-emerald-100" title={`${completedOnDay} task${completedOnDay > 1 ? "s" : ""} completed`}>⭐</span>
-                    ) : null}
-                    {dayEvents.length > 3 ? (
-                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-slate-100">+{dayEvents.length - 3}</span>
-                    ) : null}
-                  </div>
+              <div key={key} className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/30">
+                <div className="flex items-center justify-between">
+                  <div className="text-base font-semibold text-white">{label}</div>
+                  <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">{list.length} items</div>
                 </div>
-
-                <div className="mt-3 space-y-2">
-                  {dayEvents.slice(0, 3).map(ev => (
-                    <button
-                      key={ev.id}
-                      className={`w-full rounded-xl border border-transparent px-3 py-2 text-left text-xs shadow-sm transition hover:border-slate-200 ${cardClass(ev)}`}
-                      onClick={() => setSelected(ev)}
-                      title={ev.title}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="flex-1 truncate font-semibold text-white">{ev.title}</span>
-                        <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
-                          {ev.type.replaceAll("_", " ").toLowerCase()}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-slate-200">
-                        <span className="truncate">{ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}</span>
-                        {ev.type === "BILL_DUE" && ev.autopay ? (
-                          <span className="shrink-0 rounded-full bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">autopay</span>
-                        ) : null}
-                      </div>
-                      {ev.source.kind === "return" && (ev.returnBy || ev.purchaseDate) ? (
-                        <div className="mt-1 text-[10px] text-slate-300">
-                          {ev.purchaseDate ? `Purchased ${ev.purchaseDate}` : ""}{ev.purchaseDate && ev.returnBy ? " · " : ""}
-                          {ev.returnBy ? `Return by ${ev.returnBy}` : ""}
-                        </div>
-                      ) : null}
-                    </button>
-                  ))}
-                  {dayEvents.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-white/10 px-2 py-6 text-center text-[11px] text-slate-400">
-                      Empty
-                    </div>
-                  ) : null}
+                <div className="mt-3 space-y-3">
+                  {list.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/10 bg-black/30 px-3 py-4 text-sm text-slate-300">Nothing here.</div>
+                  ) : (
+                    list.map(renderEventRow)
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
-
-      <div className="space-y-4">
-        {/* Upcoming */}
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30">
-        <div className="flex items-center justify-between">
-          <div className="text-base font-semibold text-white">Upcoming</div>
-          <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">{upcoming.length} items</div>
-        </div>
-        <div className="mt-3 space-y-3">
-          {upcoming.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/10 bg-black/30 px-3 py-4 text-sm text-slate-300">
-              Nothing scheduled. Add a bill, subscription, or return to see it here.
+      ) : (
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/40 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-semibold text-white">{new Intl.DateTimeFormat("en-CA", { month: "long", year: "numeric", timeZone: "UTC" }).format(month)}</div>
+              <div className="text-sm text-slate-300">Month is for navigation; click any day for the Day Drawer.</div>
             </div>
-          ) : (
-              upcoming.map(ev => (
-                <button
-                  key={ev.id}
-                  className={`w-full rounded-xl px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10 ${cardClass(ev)}`}
-                  onClick={() => setSelected(ev)}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="truncate text-sm font-semibold text-white">{ev.title}</div>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${pillClass(ev)}`}>
-                      {ev.type.replaceAll("_", " ").toLowerCase()}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-xs text-slate-200">
-                    <span>
-                      {ev.date} · {ev.amountCents != null ? formatMoney(ev.amountCents, ev.currency ?? "CAD") : "No amount"}
-                    </span>
-                    {ev.type === "BILL_DUE" && ev.autopay ? (
-                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
-                        autopay
-                      </span>
-                    ) : null}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Completed */}
-        {completed.length > 0 ? (
-          <div className="rounded-3xl border border-emerald-300/25 bg-emerald-500/10 p-5 shadow-xl shadow-emerald-500/20">
-            <div className="flex items-center justify-between">
-              <div className="text-base font-semibold text-white">⭐ Completed this month</div>
-              <div className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-emerald-50">{completed.length} items</div>
-            </div>
-            <div className="mt-3 space-y-2">
-              {completed.map(ev => (
-                <button
-                  key={ev.id}
-                  className="w-full rounded-xl border border-emerald-300/30 bg-white/5 px-3 py-2 text-left text-xs shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200/60 hover:bg-white/10"
-                  onClick={() => setSelected(ev)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-semibold text-white">{ev.title}</div>
-                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${pillClass(ev)}`}>
-                      {ev.type.replaceAll("_", " ").toLowerCase()}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-200">
-                    <span>{ev.date}</span>
-                    {ev.type === "BILL_DUE" && ev.autopay ? (
-                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
-                        autopay
-                      </span>
-                    ) : null}
-                  </div>
-                    {ev.amountCents != null ? (
-                      <div className="text-[11px] text-emerald-50">{formatMoney(ev.amountCents, ev.currency ?? "CAD")}</div>
-                    ) : null}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <button className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => handleGoMonth(-1)}>← Prev</button>
+              <button className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => handleGoMonth(1)}>Next →</button>
             </div>
           </div>
-        ) : null}
-      </div>
+          <div className="grid grid-cols-7 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            {"Sun Mon Tue Wed Thu Fri Sat".split(" ").map(d => (
+              <div key={d} className="px-2 py-1">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {monthGrid.map(({ date, inMonth }) => {
+              const iso = toISODateOnlyUTC(date);
+              const dayEvents = eventsByDate.get(iso) ?? [];
+              const isToday = iso === todayISO;
+              return (
+                <button
+                  key={iso}
+                  onClick={() => onSelectDay(iso)}
+                  className={`relative min-h-24 rounded-xl border px-2 py-2 text-left transition ${
+                    inMonth ? "bg-slate-900/60 hover:border-cyan-200/40" : "bg-slate-900/30 text-slate-500"
+                  } ${isToday ? "ring-2 ring-cyan-400/80 ring-offset-2 ring-offset-slate-950" : ""}`}
+                >
+                  <div className="flex items-center justify-between text-xs text-white">
+                    <span className="font-semibold">{date.getUTCDate()}</span>
+                    {dayEvents.length > 0 ? (
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white">{dayEvents.length}</span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 space-y-1 text-[11px]">
+                    {dayEvents.slice(0, 3).map(ev => (
+                      <div key={ev.id} className="flex items-center gap-1 truncate text-slate-100">
+                        <span className={`h-2 w-2 rounded-full ${ev.type === "BILL_DUE" ? "bg-indigo-300" : ev.type === "RENEWAL" ? "bg-emerald-300" : "bg-cyan-300"}`} />
+                        <span className="truncate">{humanLabel(ev)}</span>
+                      </div>
+                    ))}
+                    {dayEvents.length === 0 ? <span className="text-slate-500">—</span> : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-      {/* Details drawer */}
-      {selected ? (
+      {/* Day Drawer */}
+      {selectedDay ? (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={() => setSelected(null)} />
-          <div className="absolute right-0 top-0 h-full w-full max-w-[420px] border-l border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
-            <div className="flex items-start justify-between gap-4">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={() => setSelectedDay(null)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-[440px] border-l border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
+            <div className="flex items-start justify-between">
               <div>
-                <div className="text-lg font-semibold text-white">{selected.title}</div>
-                <div className="mt-1 text-sm text-slate-300">
-                  {selected.date} · {selected.type.replaceAll("_", " ").toLowerCase()}
-                </div>
+                <div className="text-lg font-semibold text-white">{selectedDay}</div>
+                <div className="text-sm text-slate-300">Events for this date</div>
               </div>
-              <button className="rounded-xl border border-white/15 bg-white/10 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => setSelected(null)}>
+              <button className="rounded-xl border border-white/15 bg-white/10 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => setSelectedDay(null)}>
                 Close
               </button>
             </div>
-
-            <div className="mt-6 space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Amount</span>
-                <span>
-                  {selected.amountCents != null ? formatMoney(selected.amountCents, selected.currency ?? "CAD") : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Source</span>
-                <span className="capitalize text-slate-100">
-                  {selected.source.kind} · {selected.source.sourceId.slice(0, 8)}…
-                </span>
-              </div>
-            {selected.source.kind === "return" ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Purchase date</span>
-                  <span className="text-slate-100">{selected.purchaseDate ?? "Unknown"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Return by</span>
-                  <span className="text-slate-100">{selected.returnBy ?? "Potential return date not set"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Tracking #</span>
-                  <span className="text-slate-100">{selected.trackingNumber && selected.trackingNumber.length ? selected.trackingNumber : "Not provided"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Follow up</span>
-                  <Link
-                    className="pill-link"
-                    href={`https://www.google.com/search?q=${encodeURIComponent((selected.title || "customer service") + " refund")}`}
-                    target="_blank"
-                  >
-                    Contact merchant
-                  </Link>
-                </div>
-              </>
-            ) : null}
-            </div>
-
-            {selected.type === "BILL_DUE" ? (
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">Status</span>
-                  <span className="font-medium text-slate-100">{selected.billStatus ?? "DUE"}</span>
-                </div>
-                {selected.autopay !== undefined ? (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-400">Autopay</span>
-                    <span className="font-medium text-slate-100">{selected.autopay ? "On" : "Off"}</span>
-                  </div>
-                ) : null}
-
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-white">Edit bill</div>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Name</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.name} onChange={e => setBillEdit(v => ({ ...v, name: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Amount (CAD)</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.amount} onChange={e => setBillEdit(v => ({ ...v, amount: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Due day</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={billEdit.dueDay} onChange={e => setBillEdit(v => ({ ...v, dueDay: e.target.value }))} />
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={billEdit.autopay} onChange={e => setBillEdit(v => ({ ...v, autopay: e.target.checked }))} />
-                    <span>Autopay</span>
-                  </label>
-                  <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveBillEdit}>
-                    {editLoading ? "Saving…" : "Save bill"}
-                  </button>
-                </div>
-
-                {selected.billStatus !== "PAID" ? (
-                  <>
-                    <label className="block text-sm">
-                      <div className="mb-1 text-slate-400">Amount paid (optional override, CAD)</div>
-                      <input
-                        className="w-full rounded-xl border px-3 py-2 text-sm"
-                        placeholder="e.g. 120.50"
-                        value={payAmount}
-                        onChange={(e) => setPayAmount(e.target.value)}
-                      />
-                    </label>
-
-                    <label className="block text-sm">
-                      <div className="mb-1 text-slate-400">Notes (optional)</div>
-                      <input
-                        className="w-full rounded-xl border px-3 py-2 text-sm"
-                        placeholder="e.g. paid via autopay"
-                        value={payNotes}
-                        onChange={(e) => setPayNotes(e.target.value)}
-                      />
-                    </label>
-
-                    <button
-                      className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-                      disabled={payLoading}
-                      onClick={() => markBill(selected, "PAID")}
-                    >
-                      {payLoading ? "Saving…" : "Mark as Paid"}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-                    disabled={payLoading}
-                    onClick={() => markBill(selected, "DUE")}
-                  >
-                    {payLoading ? "Saving…" : "Mark as Due"}
-                  </button>
-                )}
-              </div>
-            ) : null}
-            {selected.type === "RENEWAL" ? (
-              <div className="mt-6 space-y-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-white">Edit subscription</div>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Name</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.name} onChange={e => setSubEdit(v => ({ ...v, name: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Amount (CAD)</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.amount} onChange={e => setSubEdit(v => ({ ...v, amount: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Renewal date</div>
-                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={subEdit.renewalDate} onChange={e => setSubEdit(v => ({ ...v, renewalDate: e.target.value }))} />
-                  </label>
-                  <div className="flex gap-2">
-                    <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveSubEdit}>
-                      {editLoading ? "Saving…" : "Save"}
-                    </button>
-                    <button
-                      className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-                      disabled={payLoading}
-                      onClick={() => cancelSubscription(selected)}
-                    >
-                      {payLoading ? "Saving…" : "Mark as Cancelled"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {selected.type === "RETURN_DEADLINE" ? (
-              <div className="mt-6 space-y-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-white">Edit return</div>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Store</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.store} onChange={e => setReturnEdit(v => ({ ...v, store: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Item note</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.itemNote} onChange={e => setReturnEdit(v => ({ ...v, itemNote: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Amount (CAD)</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.amount} onChange={e => setReturnEdit(v => ({ ...v, amount: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Purchase date</div>
-                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.purchaseDate} onChange={e => setReturnEdit(v => ({ ...v, purchaseDate: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Return by</div>
-                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.returnBy} onChange={e => setReturnEdit(v => ({ ...v, returnBy: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Tracking # (optional)</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.trackingNumber} onChange={e => setReturnEdit(v => ({ ...v, trackingNumber: e.target.value }))} />
-                  </label>
-                  <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
-                    {editLoading ? "Saving…" : "Save return"}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <button
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60"
-                    disabled={payLoading}
-                    onClick={() => markDroppedOff(selected)}
-                  >
-                    {payLoading ? "Saving…" : "Mark Dropped Off"}
-                  </button>
-                  <button
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-                    disabled={payLoading}
-                    onClick={() => markRefunded(selected)}
-                  >
-                    {payLoading ? "Saving…" : "Mark Refunded"}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {selected.type === "REFUND_CHECK" ? (
-              <button
-                className="mt-6 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-                disabled={payLoading}
-                onClick={() => markRefunded(selected)}
-              >
-                {payLoading ? "Saving…" : "Mark Refunded"}
-              </button>
-            ) : null}
-            {selected.source.kind === "return" && selected.type !== "RETURN_DEADLINE" ? (
-              <div className="mt-6 space-y-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm space-y-2">
-                  <div className="font-semibold text-white">Edit return</div>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Store</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.store} onChange={e => setReturnEdit(v => ({ ...v, store: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Item note</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.itemNote} onChange={e => setReturnEdit(v => ({ ...v, itemNote: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Amount (CAD)</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.amount} onChange={e => setReturnEdit(v => ({ ...v, amount: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Purchase date</div>
-                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.purchaseDate} onChange={e => setReturnEdit(v => ({ ...v, purchaseDate: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Return by</div>
-                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.returnBy} onChange={e => setReturnEdit(v => ({ ...v, returnBy: e.target.value }))} />
-                  </label>
-                  <label className="block">
-                    <div className="text-xs text-slate-400">Tracking # (optional)</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={returnEdit.trackingNumber} onChange={e => setReturnEdit(v => ({ ...v, trackingNumber: e.target.value }))} />
-                  </label>
-                  <button className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60" disabled={editLoading} onClick={saveReturnEdit}>
-                    {editLoading ? "Saving…" : "Save return"}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-            <div className="mt-8 text-sm text-slate-400">
-              Next we’ll wire this drawer to real actions: mark cancelled, mark dropped off, mark refunded, edit dates.
+            <div className="mt-4 space-y-3">
+              {dayDrawerEvents.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-white/15 bg-black/30 px-3 py-4 text-sm text-slate-300">No events on this day.</div>
+              ) : (
+                dayDrawerEvents.map(renderEventRow)
+              )}
             </div>
           </div>
         </div>
       ) : null}
 
-      {showAddBill ? <AddBillModal onClose={() => setShowAddBill(false)} onCreated={refreshMonth} /> : null}
-      {showAddSub ? <AddSubscriptionModal onClose={() => setShowAddSub(false)} onCreated={refreshMonth} /> : null}
-      {showAddReturn ? <AddReturnModal onClose={() => setShowAddReturn(false)} onCreated={refreshMonth} /> : null}
-    </div>
-  );
-}
+      {/* Details Drawer */}
+      {selectedEvent ? (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={() => setSelectedEvent(null)} />
+          <div className="absolute right-0 top-0 h-full w-full max-w-[440px] border-l border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold text-white">{selectedEvent.title}</div>
+                <div className="mt-1 text-sm text-slate-300">{selectedEvent.date} · {humanLabel(selectedEvent)}</div>
+              </div>
+              <button className="rounded-xl border border-white/15 bg-white/10 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/40 hover:bg-white/20" onClick={() => setSelectedEvent(null)}>
+                Close
+              </button>
+            </div>
 
-function AddBillModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => Promise<unknown> }) {
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [dueDay, setDueDay] = useState("1");
-  const [autopay, setAutopay] = useState(false);
-  const [saving, setSaving] = useState(false);
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Amount</span>
+                <span>{selectedEvent.amountCents != null ? formatMoney(selectedEvent.amountCents, selectedEvent.currency ?? "CAD") : "—"}</span>
+              </div>
 
-  async function submit() {
-    setSaving(true);
-    try {
-      const amountCents =
-        amount.trim().length > 0 ? Math.round(Number(amount) * 100) : undefined;
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Due / event date</span>
+                <span className="text-slate-100">{selectedEvent.date}</span>
+              </div>
 
-      await fetch("/api/bills", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          amountCents: Number.isFinite(amountCents) ? amountCents : undefined,
-          dueDayOfMonth: Number(dueDay),
-          autopay,
-        }),
-      });
+              {selectedEvent.returnBy ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Return by</span>
+                  <span className="text-slate-100">{selectedEvent.returnBy}</span>
+                </div>
+              ) : null}
 
-      await onCreated();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
+              {selectedEvent.autopay != null ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Autopay</span>
+                  <span className="text-slate-100">{selectedEvent.autopay ? "Enabled" : "Off"}</span>
+                </div>
+              ) : null}
 
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-lg font-semibold text-white">Add Bill</div>
-            <div className="mt-1 text-sm text-slate-400">Recurring monthly bill with paid tracking.</div>
+              {selectedEvent.trackingNumber ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Tracking #</span>
+                  <span className="text-slate-100">{selectedEvent.trackingNumber}</span>
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-slate-400">Edit page</span>
+                <a
+                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold text-cyan-100 transition hover:border-cyan-200/60 hover:bg-white/10"
+                  href={editLinkFor(selectedEvent)}
+                >
+                  Open
+                </a>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                {selectedEvent.type === "BILL_DUE" ? (
+                  <button
+                    className="w-full rounded-xl border border-emerald-200/50 bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-50 transition hover:-translate-y-0.5"
+                    disabled={actionLoading === selectedEvent.id}
+                    onClick={() => markBill(selectedEvent, selectedEvent.billStatus === "PAID" ? "DUE" : "PAID")}
+                  >
+                    {actionLoading === selectedEvent.id ? "Saving…" : selectedEvent.billStatus === "PAID" ? "Mark Due" : "Mark Paid"}
+                  </button>
+                ) : null}
+                {selectedEvent.type === "RENEWAL" ? (
+                  <button
+                    className="w-full rounded-xl border border-rose-200/50 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-50 transition hover:-translate-y-0.5"
+                    disabled={actionLoading === selectedEvent.id}
+                    onClick={() => cancelSubscription(selectedEvent)}
+                  >
+                    {actionLoading === selectedEvent.id ? "Saving…" : "Cancel subscription"}
+                  </button>
+                ) : null}
+                {selectedEvent.type === "RETURN_DEADLINE" ? (
+                  <button
+                    className="w-full rounded-xl border border-cyan-200/50 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:-translate-y-0.5"
+                    disabled={actionLoading === selectedEvent.id}
+                    onClick={() => markDroppedOff(selectedEvent)}
+                  >
+                    {actionLoading === selectedEvent.id ? "Saving…" : "Mark dropped off"}
+                  </button>
+                ) : null}
+                {(selectedEvent.type === "REFUND_CHECK" || selectedEvent.type === "REFUND_EXPECTED") ? (
+                  <button
+                    className="w-full rounded-xl border border-emerald-200/50 bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-50 transition hover:-translate-y-0.5"
+                    disabled={actionLoading === selectedEvent.id}
+                    onClick={() => markRefunded(selectedEvent)}
+                  >
+                    {actionLoading === selectedEvent.id ? "Saving…" : "Mark refunded"}
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <button className="rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10" onClick={onClose}>
-            Close
-          </button>
         </div>
-
-        <div className="mt-6 space-y-3">
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Name</div>
-            <input className="w-full rounded-xl border px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Default amount (optional, CAD)</div>
-            <input className="w-full rounded-xl border px-3 py-2 text-sm" placeholder="e.g. 2000.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Due day of month (1–31)</div>
-            <input className="w-full rounded-xl border px-3 py-2 text-sm" value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
-          </label>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={autopay} onChange={(e) => setAutopay(e.target.checked)} />
-            <span>Autopay</span>
-          </label>
-
-          <button
-            className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-            disabled={saving || name.trim().length === 0}
-            onClick={submit}
-          >
-            {saving ? "Saving…" : "Create Bill"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddSubscriptionModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: () => Promise<unknown>;
-}) {
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [renewalDate, setRenewalDate] = useState(() => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + 7);
-    return d.toISOString().slice(0, 10); // YYYY-MM-DD
-  });
-  const [saving, setSaving] = useState(false);
-
-  async function submit() {
-    setSaving(true);
-    try {
-      const amountCents = Math.round(Number(amount) * 100);
-
-      await fetch("/api/subscriptions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          amountCents,
-          currency: "CAD",
-          renewalDate: renewalDate + "T00:00:00.000Z",
-          cadence: "MONTHLY",
-        }),
-      });
-
-      await onCreated();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const canSave = name.trim().length > 0 && Number.isFinite(Number(amount)) && Number(amount) > 0;
-
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-lg font-semibold text-white">Add Subscription</div>
-            <div className="mt-1 text-sm text-slate-400">Monthly renewal tracked on your calendar.</div>
-          </div>
-          <button className="rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10" onClick={onClose}>
-            Close
-          </button>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Name</div>
-            <input className="w-full rounded-xl border px-3 py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Amount (CAD)</div>
-            <input
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              placeholder="e.g. 20.99"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Next renewal date</div>
-            <input
-              type="date"
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              value={renewalDate}
-              onChange={(e) => setRenewalDate(e.target.value)}
-            />
-          </label>
-
-          <button
-            className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-            disabled={saving || !canSave}
-            onClick={submit}
-          >
-            {saving ? "Saving…" : "Create Subscription"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddReturnModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: () => Promise<unknown>;
-}) {
-  const today = new Date();
-  const todayISO = today.toISOString().slice(0, 10);
-
-  const [store, setStore] = useState("");
-  const [itemNote, setItemNote] = useState("");
-  const [amount, setAmount] = useState("");
-  const [purchaseDate, setPurchaseDate] = useState(todayISO);
-
-  const [returnWindowDays, setReturnWindowDays] = useState("30");
-
-  const [returnBy, setReturnBy] = useState(() => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + 30);
-    return d.toISOString().slice(0, 10);
-  });
-
-  const [saving, setSaving] = useState(false);
-
-  // When purchaseDate or window changes, update returnBy default UNLESS user has manually edited it.
-  // Simple version: always recompute returnBy when those change, until you change returnBy directly.
-  const [returnByTouched, setReturnByTouched] = useState(false);
-
-  function recomputeReturnBy(pdStr: string, wdStr: string) {
-    const wd = Number(wdStr);
-    if (!Number.isFinite(wd) || wd <= 0) return;
-    const d = new Date(pdStr + "T00:00:00.000Z");
-    if (Number.isNaN(d.getTime())) return;
-    d.setUTCDate(d.getUTCDate() + wd);
-    setReturnBy(d.toISOString().slice(0, 10));
-  }
-
-  function onPurchaseDateChange(v: string) {
-    setPurchaseDate(v);
-    if (!returnByTouched) recomputeReturnBy(v, returnWindowDays);
-  }
-
-  function onWindowChange(v: string) {
-    setReturnWindowDays(v);
-    if (!returnByTouched) recomputeReturnBy(purchaseDate, v);
-  }
-
-  async function submit() {
-    setSaving(true);
-    try {
-      const amountCents =
-        amount.trim().length > 0 && Number.isFinite(Number(amount)) ? Math.round(Number(amount) * 100) : null;
-
-      const wd = Number(returnWindowDays);
-
-      await fetch("/api/returns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          store,
-          itemNote: itemNote.trim() || null,
-          amountCents,
-          currency: "CAD",
-          purchaseDate: purchaseDate + "T00:00:00.000Z",
-          returnWindowDays: Number.isFinite(wd) && wd > 0 ? wd : 30,
-          // NOTE: endpoint currently computes returnBy from purchaseDate+window.
-          // We'll update endpoint next to respect manual returnBy.
-          returnBy: returnBy + "T00:00:00.000Z",
-        }),
-      });
-
-      await onCreated();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const canSave = store.trim().length > 0 && purchaseDate.length === 10 && returnBy.length === 10;
-
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-50 shadow-2xl shadow-black/50">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-lg font-semibold text-white">Add Return</div>
-            <div className="mt-1 text-sm text-slate-400">Track return-by and refund follow-ups.</div>
-          </div>
-          <button className="rounded-xl border border-white/15 bg-white/5 px-3 py-1 text-sm text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10" onClick={onClose}>
-            Close
-          </button>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Store</div>
-            <input className="w-full rounded-xl border px-3 py-2 text-sm" value={store} onChange={(e) => setStore(e.target.value)} />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Item note (optional)</div>
-            <input className="w-full rounded-xl border px-3 py-2 text-sm" placeholder="e.g. Air Max" value={itemNote} onChange={(e) => setItemNote(e.target.value)} />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Amount (optional, CAD)</div>
-            <input
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              placeholder="e.g. 185.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Purchase date</div>
-            <input
-              type="date"
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              value={purchaseDate}
-              onChange={(e) => onPurchaseDateChange(e.target.value)}
-            />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Return window days (default 30)</div>
-            <input
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              value={returnWindowDays}
-              onChange={(e) => onWindowChange(e.target.value)}
-            />
-          </label>
-
-          <label className="block text-sm">
-            <div className="mb-1 text-slate-400">Return by (manual)</div>
-            <input
-              type="date"
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              value={returnBy}
-              onChange={(e) => {
-                setReturnByTouched(true);
-                setReturnBy(e.target.value);
-              }}
-            />
-          </label>
-
-          <button
-            className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-            disabled={saving || !canSave}
-            onClick={submit}
-          >
-            {saving ? "Saving…" : "Create Return"}
-          </button>
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }
