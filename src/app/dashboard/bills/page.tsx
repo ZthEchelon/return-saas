@@ -1,5 +1,6 @@
 //bills page taht ises api/events and toggles paid/due
 
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import BillsList from "@/app/dashboard/bills/ui/BillsList";
