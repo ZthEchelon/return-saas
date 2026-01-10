@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import NotificationSettings from "./NotificationSettings";
@@ -15,8 +16,20 @@ export default async function SettingsPage() {
         </div>
         <div className="relative">
           <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-100">Settings</p>
-          <h1 className="font-display text-4xl text-white">Notifications, appearance, motion.</h1>
-          <p className="text-sm text-slate-200/80">Lead times, digest cadence, and UI preferences—all in one polished panel.</p>
+          <h1 className="font-display text-4xl text-white">Notifications, automation, motion.</h1>
+          <p className="text-sm text-slate-200/80">Lead times, digest cadence, Inbox Review, and rules now live together.</p>
+
+          <div className="mt-4 flex flex-wrap gap-2 text-sm">
+            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/automation">
+              Automation
+            </Link>
+            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/automation/review">
+              Inbox Review
+            </Link>
+            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/automation/rules">
+              Rules
+            </Link>
+          </div>
         </div>
       </div>
       <NotificationSettings />

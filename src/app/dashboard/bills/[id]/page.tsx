@@ -7,13 +7,18 @@ import BillTransactionHistory from "@/app/dashboard/bills/ui/BillTransactionHist
 export default async function BillDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) return <div>Unauthorized</div>;
 
+  const { id } = await params;
+  if (!id) {
+    notFound();
+  }
+
   const bill = await prisma.bill.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { payments: { orderBy: { paidAt: "desc" } } },
   });
 

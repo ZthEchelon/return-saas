@@ -4,19 +4,16 @@ import { UserButton } from "@clerk/nextjs";
 import NotificationsBadgeServer from "../ui/NotificationsBadgeServer";
 import { SidebarNav } from "./ui/SidebarNav";
 import ThemeToggle from "./ui/ThemeToggle";
+import { GeminiUpgradeBadge } from "@/app/ui/GeminiUpgradeBadge";
 
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: "⚡", hint: "Today" },
-  { title: "Pricing", href: "/pricing", icon: "💰", hint: "Plans" },
   { title: "Analytics", href: "/dashboard/analytics", icon: "📊", hint: "Spending" },
   { title: "Calendar", href: "/dashboard/calendar", icon: "🗓", hint: "Month + agenda" },
   { title: "Returns", href: "/dashboard/returns", icon: "📦", hint: "Deadlines + refunds" },
   { title: "Bills", href: "/dashboard/bills", icon: "💳", hint: "Due soon" },
   { title: "Subscriptions", href: "/dashboard/subscriptions", icon: "🔁", hint: "Renewals" },
-  { title: "Receipts", href: "/dashboard/receipts", icon: "🧾", hint: "Upload & review" },
-  { title: "Automation", href: "/dashboard/automation", icon: "🤖", hint: "Inbox + rules" },
-  { title: "Notifications", href: "/dashboard/notifications", icon: "🔔", hint: "Digest + alerts" },
-  { title: "Settings", href: "/dashboard/settings", icon: "⚙️", hint: "Preferences" },
+  { title: "Settings", href: "/dashboard/settings", icon: "⚙️", hint: "Preferences + automation" },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -97,7 +94,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
                 />
               </div>
+              <GeminiUpgradeBadge className="hidden sm:inline-flex" />
               <ThemeToggle />
+              <Link
+                href="/dashboard/receipts"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-lg transition hover:-translate-y-0.5 hover:border-cyan-200/50 hover:bg-white/10"
+                aria-label="Receipts"
+                title="Receipts"
+              >
+                🧾
+              </Link>
               <button className="hidden items-center gap-2 rounded-2xl border border-cyan-200/50 bg-gradient-to-r from-cyan-400/80 via-emerald-400/80 to-fuchsia-400/70 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:-translate-y-0.5 hover:shadow-cyan-500/50 sm:flex">
                 <span className="text-base">＋</span>
                 Add

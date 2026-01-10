@@ -36,7 +36,7 @@ export default function ReceiptUploadForm() {
       }
 
       setMsg("Uploaded. Added to Inbox Review.");
-      window.location.href = "/dashboard/automation/review";
+      window.location.href = "/dashboard/settings/automation/review";
     } finally {
       setLoading(false);
     }

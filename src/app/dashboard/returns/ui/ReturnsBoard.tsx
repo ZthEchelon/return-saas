@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { AlertCircle, Check, CheckCircle2, Package, RefreshCw, Circle, Filter } from "lucide-react";
 import { formatMoney } from "@/lib/events";
 
 type ReturnItem = {
@@ -41,8 +42,19 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 }
 
-export default function ReturnsBoard({ items, stats }: { items: ReturnItem[]; stats: Stats }) {
+export default function ReturnsBoard({
+  items,
+  stats,
+  initialBucket,
+  onBucketChange,
+}: {
+  items: ReturnItem[];
+  stats: Stats;
+  initialBucket: "active" | "refunded";
+  onBucketChange?: (bucket: "active" | "refunded") => void;
+}) {
   const [view, setView] = useState<"list" | "timeline">("timeline");
+  const [bucket, setBucket] = useState<"active" | "refunded">(initialBucket);
   const [statusFilter, setStatusFilter] = useState<Set<ReturnItem["status"]>>(
     new Set(["NOT_STARTED", "PACKED", "DROPPED_OFF", "REFUNDED"])
   );
@@ -54,6 +66,8 @@ export default function ReturnsBoard({ items, stats }: { items: ReturnItem[]; st
   const filtered = useMemo(() => {
     const now = new Date();
     return data.filter(item => {
+      if (bucket === "active" && item.status === "REFUNDED") return false;
+      if (bucket === "refunded" && item.status !== "REFUNDED") return false;
       if (!statusFilter.has(item.status)) return false;
 
       if (query.trim()) {
@@ -71,7 +85,7 @@ export default function ReturnsBoard({ items, stats }: { items: ReturnItem[]; st
 
       return true;
     });
-  }, [data, query, range, statusFilter]);
+  }, [bucket, data, query, range, statusFilter]);
 
   const focusStrip = useMemo(() => {
     return [...filtered]
@@ -118,6 +132,14 @@ export default function ReturnsBoard({ items, stats }: { items: ReturnItem[]; st
     }
   }
 
+  useEffect(() => {
+    onBucketChange?.(bucket);
+  }, [bucket, onBucketChange]);
+
+  useEffect(() => {
+    setBucket(initialBucket);
+  }, [initialBucket]);
+
   return (
     <div className="space-y-5">
       <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -126,106 +148,74 @@ export default function ReturnsBoard({ items, stats }: { items: ReturnItem[]; st
             <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Filters</p>
             <p className="text-sm text-slate-200">Status chips, horizons, and views.</p>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1 text-xs">
-            {["timeline", "list"].map(mode => (
-              <button
-                key={mode}
-                onClick={() => setView(mode as "timeline" | "list")}
-                className={`rounded-full px-3 py-1 font-semibold transition ${
-                  view === mode ? "bg-gradient-to-r from-cyan-400/50 to-emerald-400/40 text-slate-950" : "text-slate-200"
-                }`}
-              >
-                {mode === "timeline" ? "Timeline cards" : "Compact list"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {(["NOT_STARTED", "PACKED", "DROPPED_OFF", "REFUNDED"] as ReturnItem["status"][]).map(status => (
-            <button
-              key={status}
-              onClick={() => {
-                const next = new Set(statusFilter);
-                if (next.has(status)) next.delete(status);
-                else next.add(status);
-                setStatusFilter(next);
-              }}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                statusFilter.has(status)
-                  ? "border-cyan-200/50 bg-white/15 text-white"
-                  : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
-              }`}
-            >
-              {status.replaceAll("_", " ").toLowerCase()}
-            </button>
-          ))}
-          {["all", "7d", "30d", "overdue"].map(r => (
-            <button
-              key={r}
-              onClick={() => setRange(r as typeof range)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                range === r
-                  ? "border-emerald-200/60 bg-emerald-500/20 text-emerald-50"
-                  : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
-              }`}
-            >
-              {r === "all" ? "All dates" : r === "overdue" ? "Overdue" : `Next ${r}`}
-            </button>
-          ))}
-          <div className="flex-1 min-w-[200px] rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-100">
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search store or note…"
-              className="w-full bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">In progress</p>
-          <p className="font-display text-2xl text-white">{stats.inProgress}</p>
-          <p className="text-xs text-slate-300">Awaiting drop-off or refund</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Refunded</p>
-          <p className="font-display text-2xl text-white">{stats.refunded}</p>
-          <p className="text-xs text-slate-300">Received {formatMoney(stats.totalRefunded, "CAD")}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Potential</p>
-          <p className="font-display text-2xl text-white">{formatMoney(stats.potentialRefunds, "CAD")}</p>
-          <p className="text-xs text-slate-300">Across active returns</p>
-        </div>
-      </div>
-
-      {focusStrip.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-3">
-          {focusStrip.map(item => {
-            const daysLeft = Math.max(0, Math.ceil((new Date(item.returnBy).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-            const meta = statusMeta[item.status];
-            return (
-              <div key={item.id} className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${meta.glow} p-4`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-200">Focus</p>
-                    <p className="text-lg font-semibold text-white">{item.store}</p>
-                  </div>
-                  <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${meta.chip}`}>{meta.label}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1 text-xs">
+              {["timeline", "list"].map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setView(mode as "timeline" | "list")}
+                  className={`rounded-full px-3 py-1 font-semibold transition ${
+                    view === mode ? "bg-gradient-to-r from-cyan-400/50 to-emerald-400/40 text-slate-950" : "text-slate-200"
+                  }`}
+                >
+                  {mode === "timeline" ? "Timeline cards" : "Compact list"}
+                </button>
+              ))}
+            </div>
+            <details className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-200 shadow-sm">
+              <summary className="flex cursor-pointer items-center gap-2 font-semibold">
+                <Filter className="h-4 w-4" />
+                Filters
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {(["NOT_STARTED", "PACKED", "DROPPED_OFF", "REFUNDED"] as ReturnItem["status"][]).map(status => (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        const next = new Set(statusFilter);
+                        if (next.has(status)) next.delete(status);
+                        else next.add(status);
+                        setStatusFilter(next);
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        statusFilter.has(status)
+                          ? "border-cyan-200/50 bg-white/15 text-white"
+                          : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
+                      }`}
+                    >
+                      {status.replaceAll("_", " ").toLowerCase()}
+                    </button>
+                  ))}
                 </div>
-                <p className="mt-1 text-sm text-slate-200">{item.itemNote}</p>
-                <div className="mt-3 flex items-center justify-between text-sm text-white">
-                  <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-emerald-100">{daysLeft}d left</span>
-                  <span>{formatDate(item.returnBy)}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {["all", "7d", "30d", "overdue"].map(r => (
+                    <button
+                      key={r}
+                      onClick={() => setRange(r as typeof range)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        range === r
+                          ? "border-emerald-200/60 bg-emerald-500/20 text-emerald-50"
+                          : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10"
+                      }`}
+                    >
+                      {r === "all" ? "All dates" : r === "overdue" ? "Overdue" : `Next ${r}`}
+                    </button>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-100">
+                  <input
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Search store or note…"
+                    className="w-full bg-transparent text-slate-100 placeholder:text-slate-500 focus:outline-none"
+                  />
                 </div>
               </div>
-            );
-          })}
+            </details>
+          </div>
         </div>
-      ) : null}
+      </div>
 
       {view === "list" ? (
         <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -260,20 +250,37 @@ export default function ReturnsBoard({ items, stats }: { items: ReturnItem[]; st
                       {item.amountCents != null ? formatMoney(item.amountCents, item.currency ?? "CAD") : "—"}
                     </div>
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => markReturned(item.id)}
-                        disabled={loadingId === item.id + "-returned"}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60"
-                      >
-                        {loadingId === item.id + "-returned" ? "…" : "Mark returned"}
-                      </button>
-                      <button
-                        onClick={() => markRefunded(item)}
-                        disabled={loadingId === item.id + "-refunded"}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-                      >
-                        {loadingId === item.id + "-refunded" ? "…" : "Mark refunded"}
-                      </button>
+                      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1 text-[11px] font-semibold">
+                        {["drop", "refund"].map(step => {
+                          const dropped = ["DROPPED_OFF", "REFUNDED"].includes(item.status);
+                          const refunded = item.status === "REFUNDED";
+                          const active = step === "drop" ? dropped : refunded;
+                          const disabled = step === "refund" ? !dropped : false;
+                          const loading = loadingId === item.id + (step === "drop" ? "-returned" : "-refunded");
+                          const onClick =
+                            step === "drop"
+                              ? () => markReturned(item.id)
+                              : () => markRefunded(item);
+                          return (
+                            <button
+                              key={step}
+                              onClick={onClick}
+                              disabled={disabled || loading}
+                              className={`flex items-center gap-1 rounded-full px-3 py-1 transition ${
+                                active
+                                  ? "bg-gradient-to-r from-cyan-400/50 to-emerald-400/40 text-slate-950"
+                                  : "text-slate-200 hover:text-white"
+                              } ${disabled ? "opacity-60" : ""}`}
+                            >
+                              <Check className="h-3 w-3" />
+                              {step === "drop" ? "Drop off" : "Refunded"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <Link href={`/dashboard/returns/${item.id}`} className="text-[11px] font-semibold text-cyan-100 hover:text-white">
+                        Details ↗
+                      </Link>
                     </div>
                   </div>
                 );
@@ -290,61 +297,90 @@ export default function ReturnsBoard({ items, stats }: { items: ReturnItem[]; st
           ) : (
             filtered.map(item => {
               const meta = statusMeta[item.status];
-              const steps = [
-                { title: "Purchased", date: formatDate(item.purchaseDate), active: true },
-                { title: "Return by", date: formatDate(item.returnBy), active: true },
-                { title: "Dropped off", date: formatDate(item.dropoffDate), active: ["DROPPED_OFF", "REFUNDED"].includes(item.status) },
-                { title: "Refunded", date: formatDate(item.refundedDate), active: item.status === "REFUNDED" },
+              const daysLeft = Math.max(0, Math.ceil((new Date(item.returnBy).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+              const dropped = ["PACKED", "DROPPED_OFF", "REFUNDED"].includes(item.status);
+              const returned = ["DROPPED_OFF", "REFUNDED"].includes(item.status);
+              const refunded = item.status === "REFUNDED";
+              const actions = [
+                { key: "purchase", label: "Purchase", active: true, disabled: true, icon: <Circle className="h-4 w-4" /> },
+                {
+                  key: "dropped",
+                  label: "Dropped",
+                  active: dropped,
+                  disabled: dropped || loadingId === item.id + "-returned",
+                  icon: <Package className="h-4 w-4" />,
+                  onClick: () => markReturned(item.id),
+                  loading: loadingId === item.id + "-returned",
+                },
+                { key: "returned", label: "Returned", active: returned, disabled: true, icon: <RefreshCw className="h-4 w-4" /> },
+                {
+                  key: "refunded",
+                  label: "Refunded",
+                  active: refunded,
+                  disabled: !returned || refunded || loadingId === item.id + "-refunded",
+                  icon: <CheckCircle2 className="h-4 w-4" />,
+                  onClick: () => markRefunded(item),
+                  loading: loadingId === item.id + "-refunded",
+                },
               ];
               return (
-                <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-xl shadow-black/30">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Return</p>
-                      <p className="text-lg font-semibold text-white">{item.store}</p>
-                      <p className="text-xs text-slate-400">{item.itemNote}</p>
-                    </div>
-                    <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${meta.chip}`}>{meta.label}</span>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-sm text-slate-100">
-                    <span>{item.amountCents != null ? formatMoney(item.amountCents, item.currency ?? "CAD") : "—"}</span>
-                    <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-emerald-100">
-                      {Math.max(0, Math.ceil((new Date(item.returnBy).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}d left
-                    </span>
+                <div
+                  key={item.id}
+                  className="relative overflow-hidden rounded-3xl border border-rose-300/25 bg-slate-900/80 p-5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.6)]"
+                >
+                  <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute left-[-40px] top-[-60px] h-48 w-48 rounded-full bg-rose-500/10 blur-[120px]" />
+                    <div className="absolute right-[-60px] bottom-[-40px] h-48 w-48 rounded-full bg-cyan-500/10 blur-[120px]" />
                   </div>
 
-                  <div className="mt-4 space-y-2">
-                    {steps.map((step, idx) => (
-                      <div key={step.title} className="flex items-center gap-3">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${step.active ? "bg-white/15 text-white" : "bg-white/5 text-slate-500"}`}>
-                          {idx + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm ${step.active ? "text-white" : "text-slate-400"}`}>{step.title}</p>
-                          <p className="text-xs text-slate-400">{step.date}</p>
-                        </div>
+                  <div className="relative flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.24em] text-rose-200/80">Return</p>
+                      <p className="text-2xl font-semibold text-white">{item.store}</p>
+                      <p className="text-sm text-slate-400">{item.itemNote}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-semibold text-white">
+                        {item.amountCents != null ? formatMoney(item.amountCents, item.currency ?? "CAD") : "—"}
+                      </p>
+                      <div className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${daysLeft <= 3 ? "text-rose-300" : "text-slate-200"}`}>
+                        <AlertCircle className="h-4 w-4" />
+                        {daysLeft} days left
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="relative mt-6 flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-3xl border border-emerald-300/30 bg-emerald-500/10 text-emerald-200 shadow-[0_0_0_6px_rgba(16,185,129,0.08)]">
+                      <Circle className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 border-b border-white/5" />
+                  </div>
+
+                  <div className="relative mt-4 grid grid-cols-4 gap-3">
+                    {actions.map(action => (
+                      <button
+                        key={action.key}
+                        disabled={action.disabled || action.loading}
+                        onClick={action.onClick}
+                        className={`flex flex-col items-center gap-2 rounded-2xl border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide transition ${
+                          action.active
+                            ? "border-emerald-300/60 bg-emerald-400/10 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.3)]"
+                            : "border-white/10 bg-white/5 text-slate-400 hover:border-white/20 hover:text-white"
+                        } ${action.disabled ? "opacity-50" : ""}`}
+                      >
+                        <span className="text-base">{action.icon}</span>
+                        {action.loading ? "…" : action.label}
+                      </button>
                     ))}
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => markReturned(item.id)}
-                        disabled={loadingId === item.id + "-returned"}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/10 disabled:opacity-60"
-                      >
-                        {loadingId === item.id + "-returned" ? "…" : "Mark returned"}
-                      </button>
-                      <button
-                        onClick={() => markRefunded(item)}
-                        disabled={loadingId === item.id + "-refunded"}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-emerald-200/50 hover:bg-white/10 disabled:opacity-60"
-                      >
-                        {loadingId === item.id + "-refunded" ? "…" : "Mark refunded"}
-                      </button>
-                    </div>
-                    <Link href={`/dashboard/returns/${item.id}`} className="text-[11px] font-semibold text-cyan-100 hover:text-white">
+                  <div className="relative mt-4 text-[11px] text-slate-400">
+                    Return by {formatDate(item.returnBy)} · Purchased {formatDate(item.purchaseDate)} · Tracking {item.trackingNumber || "—"}
+                  </div>
+
+                  <div className="relative mt-3 text-right text-[11px] font-semibold">
+                    <Link href={`/dashboard/returns/${item.id}`} className="text-cyan-100 hover:text-white">
                       Details ↗
                     </Link>
                   </div>

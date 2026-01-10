@@ -19,7 +19,7 @@ export default async function NotificationsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Link className="pill-link" href="/dashboard/calendar">Calendar</Link>
-          <Link className="pill-link" href="/dashboard/automation/review">Inbox Review</Link>
+          <Link className="pill-link" href="/dashboard/settings/automation/review">Inbox Review</Link>
         </div>
       </div>
 

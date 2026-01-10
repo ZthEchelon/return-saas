@@ -1,456 +1,415 @@
+/*
+ * Landing page inspired by the provided animated hero/CTA layout.
+ * Uses framer-motion + lucide-react for motion and icons.
+ */
+"use client";
+
 import Link from "next/link";
-import { pricingPlans } from "./pricing/plans";
+import { ReactNode, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  BellRing,
+  Calendar,
+  CheckCircle2,
+  FileText,
+  Github,
+  HelpCircle,
+  Linkedin,
+  RefreshCw,
+  Shield,
+} from "lucide-react";
 
-export default function Home() {
-  const navLinks = [
-    { href: "/", label: "Product" },
-    { href: "/#features", label: "Features" },
-    { href: "/pricing", label: "Pricing" },
-    { href: "/#faq", label: "FAQ" },
+type ButtonVariant = "primary" | "secondary";
+
+function ShinyButton({
+  children,
+  variant = "primary",
+  className = "",
+}: {
+  children: ReactNode;
+  variant?: ButtonVariant;
+  className?: string;
+}) {
+  const base =
+    "inline-flex items-center justify-center rounded-full px-8 py-3 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950";
+  const variants: Record<ButtonVariant, string> = {
+    primary: "bg-gradient-to-r from-cyan-400 via-emerald-400 to-fuchsia-400 text-slate-950 shadow-lg shadow-emerald-500/30 hover:-translate-y-0.5",
+    secondary: "border border-white/20 bg-white/5 text-slate-50 hover:border-white/40 hover:bg-white/10",
+  };
+  return <span className={`${base} ${variants[variant]} ${className}`}>{children}</span>;
+}
+
+function Navbar() {
+  const links = [
+    { label: "Product", href: "/#features" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "Dashboard", href: "/dashboard" },
   ];
-
-  const featureCards = [
-    {
-      title: "Return Deadlines",
-      subtitle: "Never miss a window again",
-      items: [
-        { label: "Amazon Headphones", badge: "3d left", color: "from-amber-500 to-orange-500" },
-        { label: "Nike Sneakers", badge: "14d left", color: "from-cyan-500 to-blue-500" },
-        { label: "Apple Watch", badge: "7d left", color: "from-emerald-500 to-teal-500" },
-      ],
-    },
-    {
-      title: "Subscription Renewals",
-      subtitle: "Stay ahead of every renewal",
-      items: [
-        { label: "Netflix", badge: "$15.99 · 5d", color: "from-rose-500 to-pink-500" },
-        { label: "Spotify", badge: "$9.99 · 12d", color: "from-emerald-500 to-green-500" },
-        { label: "Adobe CC", badge: "$54.99 · 18d", color: "from-purple-500 to-indigo-500" },
-        { label: "iCloud", badge: "$2.99 · 24d", color: "from-cyan-500 to-blue-500" },
-      ],
-    },
-    {
-      title: "Weekly Digest",
-      subtitle: "One beautiful email",
-      digest: {
-        range: "Dec 9 - Dec 15",
-        bullets: [
-          "3 returns due this week",
-          "2 subscriptions renewing",
-          "$89.97 saved last week",
-        ],
-      },
-    },
-  ];
-
-  const howItWorks = [
-    {
-      step: "1",
-      title: "Add your items",
-      body: "Import from email or add manually. Looply captures renewal dates, return windows, and amounts.",
-    },
-    {
-      step: "2",
-      title: "Get smart reminders",
-      body: "Lead times you control—see alerts at 7, 3, and 1 day before it matters.",
-    },
-    {
-      step: "3",
-      title: "Save money, stay organized",
-      body: "Avoid surprise renewals and missed returns. Track savings over time in one calm view.",
-    },
-  ];
-
-  const faqs = [
-    { q: "How does Looply help me save money?", a: "We surface upcoming renewals and return deadlines with lead times you set, so you cancel or return before charges hit. Weekly digests and notifications keep you ahead." },
-    { q: "Is there a free plan?", a: "Yes, the Free plan lets you track up to 10 items with basic reminders. Upgrade anytime." },
-    { q: "Can I import my existing subscriptions?", a: "Yes. Add manually or connect email to auto-detect common subscriptions and returns." },
-    { q: "How do reminder notifications work?", a: "You pick lead times (e.g., 7/3/1 days). We notify via email and in-app. Digest emails summarize what's upcoming." },
-    { q: "Can I share my lists with family members?", a: "Team sharing is on the Pro+ roadmap; today you can export calendar feeds to share." },
-    { q: "What happens if I cancel my subscription?", a: "You keep access through the current period. Your data remains; reminders pause when disabled." },
-  ];
-
   return (
-    <div className="theme-light min-h-screen">
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <nav className="max-w-6xl mx-auto glass-panel rounded-2xl border px-6 py-3 shadow-lg shadow-orange-200/40">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 cursor-pointer">
-            <div className="w-9 h-9 overflow-hidden rounded-lg bg-white shadow">
-              <img src="/looply-logo.png" alt="Looply logo" className="h-full w-full object-cover" />
-            </div>
-            <span className="font-display font-bold text-xl text-slate-900" data-testid="logo-text">
-              Looply
-            </span>
+    <header className="fixed left-0 right-0 top-0 z-40 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-emerald-400 text-lg font-bold text-slate-950 shadow-lg shadow-cyan-500/30">
+            L
+          </div>
+          <div>
+            <div className="font-display text-lg font-semibold text-white">Looply</div>
+            <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400">reminders</div>
+          </div>
+        </Link>
+
+        <nav className="hidden items-center gap-6 md:flex">
+          {links.map(link => (
+            <Link key={link.href} href={link.href} className="text-sm font-medium text-slate-200 hover:text-white">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <Link href="/sign-in" className="hidden rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-100 hover:border-white/30 hover:bg-white/5 sm:inline-flex">
+            Log in
           </Link>
-
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map(link => (
-              <Link key={link.href} href={link.href}>
-                <span className="text-sm font-medium cursor-pointer transition-colors text-slate-600 hover:text-slate-900">
-                  {link.label}
-                </span>
-              </Link>
-            ))}
-          </div>
-
-          <div className="hidden md:flex items-center gap-3">
-            <Link href="/sign-in">
-              <button className="inline-flex items-center justify-center gap-2 rounded-md border border-transparent bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:shadow-md">
-                Log in
-              </button>
-            </Link>
-            <Link href="/sign-up">
-              <button className="inline-flex items-center justify-center gap-2 rounded-md border border-orange-200 bg-gradient-to-r from-orange-500 to-emerald-400 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-orange-200/70 hover:shadow-lg">
-                Get Started
-              </button>
-            </Link>
-          </div>
-
-          <button className="md:hidden p-2 text-slate-700" aria-label="Open menu">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 5h16"></path>
-              <path d="M4 12h16"></path>
-              <path d="M4 19h16"></path>
-            </svg>
-          </button>
-        </div>
-      </nav>
-    </div>
-
-    <div className="mx-auto max-w-7xl px-4 pb-10">
-    <section className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white/80 p-10 shadow-2xl backdrop-blur">
-      <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-emerald-200/40 blur-3xl" />
-      <div className="absolute right-0 top-10 h-52 w-52 rounded-full bg-purple-200/40 blur-3xl" />
-      <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-200/40" />
-
-      <div className="relative grid items-center gap-12 lg:grid-cols-2">
-        <div className="space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/60 px-4 py-2 text-xs font-semibold text-emerald-700 shadow-sm">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-            Now in public beta
-          </div>
-          <h1 className="font-display text-5xl font-bold leading-[1.05] tracking-tight text-slate-900 sm:text-6xl lg:text-7xl">
-            Never miss a <span className="text-gradient">return</span> or{" "}
-            <span className="text-gradient-cyan">renewal</span> again
-          </h1>
-          <p className="max-w-xl text-lg leading-relaxed text-slate-600">
-            Looply tracks your subscriptions and return deadlines, sending smart reminders before it’s too late. Save money, stay organized.
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <Link
-              href="/sign-up"
-              className="group inline-flex h-14 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-500 px-7 text-base font-semibold text-white shadow-lg shadow-emerald-200/60 transition hover:-translate-y-0.5 hover:bg-emerald-600"
-            >
-              Get Started Free
-              <span className="transition-transform group-hover:translate-x-1">→</span>
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex h-14 items-center gap-2 rounded-md border border-slate-200 bg-white px-7 text-base font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <span className="text-lg">▶</span>
-              Watch Demo
-            </Link>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-            <div className="flex items-center gap-2">
-              <span className="text-emerald-500">✔</span> Free forever plan
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-emerald-500">✔</span> No credit card
-            </div>
-          </div>
-        </div>
-
-        <div className="relative hidden lg:block">
-          <div className="relative h-[500px] w-full">
-            <div className="glass animate-[float_6s_ease-in-out_infinite] absolute left-0 top-0 w-56 rounded-2xl border border-slate-200/50 bg-white/80 p-4 shadow-xl">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white">
-                  📅
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">Amazon Return</p>
-                  <p className="text-xs text-slate-500">Due in 3 days</p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full w-[85%] rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
-                </div>
-                <span className="text-xs font-semibold text-amber-500">85%</span>
-              </div>
-            </div>
-
-            <div className="glass animate-[float_7s_ease-in-out_infinite] absolute right-0 top-12 w-56 rounded-2xl border border-slate-200/50 bg-white/80 p-4 shadow-xl">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 text-white">
-                  🔔
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">Netflix</p>
-                  <p className="text-xs text-slate-500">Renews Dec 15</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="glass animate-[float_5.5s_ease-in-out_infinite] absolute bottom-24 left-10 w-56 rounded-2xl border border-slate-200/50 bg-white/80 p-4 shadow-xl">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 text-white">
-                  ⏰
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">Spotify</p>
-                  <p className="text-xs text-slate-500">Renews in 12 days</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="glass animate-[float_6.5s_ease-in-out_infinite] absolute bottom-2 right-8 w-56 rounded-2xl border border-slate-200/50 bg-white/80 p-4 shadow-xl">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-400 text-white">
-                  ✅
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">Nordstrom Return</p>
-                  <p className="text-xs text-slate-500">Completed</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-32 w-32 rounded-full border-2 border-emerald-300/40" />
-              <div className="absolute h-24 w-24 rounded-full border-2 border-purple-300/30" />
-            </div>
-          </div>
+          <Link href="/sign-up" className="inline-flex rounded-full bg-white px-4 py-2 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/30 hover:-translate-y-0.5">
+            Get started
+          </Link>
         </div>
       </div>
+    </header>
+  );
+}
 
-      {/* Stats */}
-      <div className="mt-12 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold text-emerald-700">Active Users</p>
-          <p className="mt-1 text-3xl font-bold text-slate-900">50K+</p>
-        </div>
-        <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold text-cyan-700">Deadlines tracked</p>
-          <p className="mt-1 text-3xl font-bold text-slate-900">1.2M+</p>
-        </div>
-        <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 shadow-sm">
-          <p className="text-xs font-semibold text-amber-700">Avg. saved / yr</p>
-          <p className="mt-1 text-3xl font-bold text-slate-900">$280</p>
-        </div>
+type FeatureTabKey = "returns" | "renewals" | "digest" | "calendar";
+
+const featureTabs: { key: FeatureTabKey; label: string; title: string; icon: ReactNode; eyebrow: string; body: ReactNode }[] = [
+  {
+    key: "returns",
+    label: "Never miss a return window again",
+    title: "Return Deadlines",
+    eyebrow: "Track every purchase with return deadlines. Get reminded 7, 3, and 1 day before the window closes.",
+    icon: (
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900/70 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] shadow-emerald-500/10">
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-rose-400/40 via-transparent to-transparent blur-xl" />
+        <RefreshCw className="relative h-5 w-5 text-rose-300" />
       </div>
-
-      {/* Features */}
-      <div className="mt-12 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    ),
+    body: (
+      <div className="space-y-3">
+        {[
+          { label: "Amazon Headphones", badge: "3d left" },
+          { label: "Nike Sneakers", badge: "14d left" },
+          { label: "Apple Watch", badge: "7d left" },
+        ].map(item => (
+          <div key={item.label} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              <p className="text-sm font-semibold text-white">{item.label}</p>
+            </div>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-100">{item.badge}</span>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    key: "renewals",
+    label: "Stay ahead of every renewal date",
+    title: "Subscription Renewals",
+    eyebrow: "Get notified before subscriptions renew. Cancel unwanted services before you get charged.",
+    icon: (
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900/70 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] shadow-cyan-500/10">
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-400/40 via-transparent to-transparent blur-xl" />
+        <BellRing className="relative h-5 w-5 text-blue-200" />
+      </div>
+    ),
+    body: (
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[
+          { label: "Netflix", amount: "$15.99", badge: "5d" },
+          { label: "Spotify", amount: "$9.99", badge: "12d" },
+          { label: "Adobe CC", amount: "$54.99", badge: "18d" },
+          { label: "iCloud", amount: "$2.99", badge: "24d" },
+        ].map(item => (
+          <div key={item.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-white">{item.label}</p>
+                <p className="text-xs text-slate-300">{item.amount}</p>
+              </div>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-100">{item.badge}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    key: "digest",
+    label: "Everything you need in one email",
+    title: "Weekly Digest",
+    eyebrow: "Get a beautiful weekly summary of upcoming deadlines, renewals, and completed returns.",
+    icon: (
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900/70 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] shadow-emerald-500/10">
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-400/40 via-transparent to-transparent blur-xl" />
+        <CheckCircle2 className="relative h-5 w-5 text-emerald-200" />
+      </div>
+    ),
+    body: (
+      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Features</p>
-            <h2 className="font-display text-3xl font-bold text-slate-900">Everything you need to stay organized</h2>
-            <p className="text-sm text-slate-600">Powerful tools to track, manage, and never miss important deadlines.</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Weekly Digest</p>
+            <p className="text-sm font-semibold text-white">Dec 9 - Dec 15</p>
           </div>
+          <span className="rounded-full bg-emerald-100/15 px-3 py-1 text-xs font-semibold text-emerald-100">Email</span>
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          {featureCards.map(card => (
-            <div key={card.title} className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500">{card.subtitle}</p>
-                  <h3 className="text-lg font-semibold text-slate-900">{card.title}</h3>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                {"items" in card && card.items
-                  ? card.items.map(item => (
-                      <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`h-6 w-6 rounded-full bg-gradient-to-br ${item.color}`} />
-                          <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                        </div>
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{item.badge}</span>
-                      </div>
-                    ))
-                  : (
-                    <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-semibold text-slate-500">Weekly Digest</p>
-                          <p className="text-sm font-semibold text-slate-900">{card.digest?.range}</p>
-                        </div>
-                        <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">Email</span>
-                      </div>
-                      <ul className="space-y-1 text-sm text-slate-700">
-                        {card.digest?.bullets.map(b => (
-                          <li key={b} className="flex items-start gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            {b}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-              </div>
-            </div>
+        <ul className="space-y-2 text-sm text-slate-200">
+          {["3 returns due this week", "2 subscriptions renewing", "$89.97 saved last week"].map(row => (
+            <li key={row} className="flex items-start gap-2">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              {row}
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
-
-      {/* How it works */}
-      <div className="mt-12 space-y-4 rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-sm">
+    ),
+  },
+  {
+    key: "calendar",
+    label: "See everything at a glance",
+    title: "Unified Calendar",
+    eyebrow: "A beautiful calendar view that shows all your deadlines and renewals in one place.",
+    icon: (
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900/70 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] shadow-cyan-500/10">
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-400/40 via-transparent to-transparent blur-xl" />
+        <Calendar className="relative h-5 w-5 text-cyan-200" />
+      </div>
+    ),
+    body: (
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-emerald-900/30 p-6 shadow-inner shadow-emerald-500/20">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">How it works</p>
-            <h2 className="font-display text-3xl font-bold text-slate-900">Simple as 1, 2, 3</h2>
+            <p className="text-xs uppercase tracking-[0.2em] text-emerald-200">December</p>
+            <p className="text-lg font-semibold text-white">Unified agenda</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-100">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-1 text-emerald-100">
+              <span className="h-2 w-2 rounded-full bg-emerald-300" /> Returns
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-1 text-cyan-100">
+              <span className="h-2 w-2 rounded-full bg-cyan-300" /> Renewals
+            </span>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {howItWorks.map(step => (
-            <div key={step.step} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-5 shadow-inner">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700">
-                {step.step}
-              </div>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900">{step.title}</h3>
-              <p className="mt-2 text-sm text-slate-600">{step.body}</p>
-            </div>
+
+        <div className="mt-4 grid grid-cols-7 gap-2 text-center text-xs text-slate-200">
+          {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+            <div key={i} className="font-semibold text-slate-100">{d}</div>
           ))}
-        </div>
-      </div>
-
-      {/* Pricing */}
-      <div className="mt-12 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Pricing</p>
-            <h2 className="font-display text-3xl font-bold text-slate-900">Simple, transparent pricing</h2>
-            <p className="text-sm text-slate-600">Start free, upgrade when you need more. Cancel anytime.</p>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {pricingPlans.map(plan => (
-            <div
-              key={plan.name}
-              className={`rounded-2xl border p-6 shadow-sm ${
-                plan.highlight ? "border-emerald-300 bg-emerald-50/60 shadow-lg shadow-emerald-200/60" : "border-slate-200/80 bg-white/80"
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{plan.badge}</p>
-                  <h3 className="text-xl font-semibold text-slate-900">{plan.name}</h3>
-                  {plan.subtext && <p className="text-xs text-slate-500">{plan.subtext}</p>}
-                </div>
-                {plan.highlight && (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Most Popular</span>
-                )}
-              </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <p className="text-4xl font-bold text-slate-900">{plan.price}</p>
-                <p className="text-sm text-slate-600">{plan.period}</p>
-              </div>
-              <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                {plan.bullets.map(b => (
-                  <li key={b} className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    {b}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/sign-up"
-                className={`mt-6 inline-flex w-full items-center justify-center rounded-md px-4 py-3 text-sm font-semibold transition ${
-                  plan.highlight
-                    ? "bg-emerald-500 text-white shadow-lg hover:-translate-y-0.5 hover:bg-emerald-600"
-                    : "border border-slate-200 bg-white text-slate-800 hover:-translate-y-0.5 hover:shadow-md"
+          {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
+            const isReturn = [4, 12, 18].includes(day);
+            const isRenewal = [7, 15, 24].includes(day);
+            const isToday = day === 10;
+            return (
+              <div
+                key={day}
+                className={`relative flex h-12 items-center justify-center rounded-xl border text-sm transition ${
+                  isToday
+                    ? "border-emerald-300/70 bg-emerald-500/15 text-white shadow-md shadow-emerald-500/30"
+                    : "border-white/10 bg-white/5 text-slate-100"
                 }`}
               >
-                {plan.cta}
-              </Link>
-            </div>
-          ))}
+                {day}
+                {(isReturn || isRenewal) && (
+                  <div className="absolute bottom-1 flex gap-1">
+                    {isReturn ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" /> : null}
+                    {isRenewal ? <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" /> : null}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+      </div>
+    ),
+  },
+];
+
+function FeatureTabs() {
+  const [active, setActive] = useState<FeatureTabKey>("returns");
+  const current = featureTabs.find(t => t.key === active)!;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-3 md:grid-cols-4">
+        {featureTabs.map(tab => {
+          const isActive = tab.key === active;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActive(tab.key)}
+              className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                isActive
+                  ? "border-cyan-200/60 bg-white/10 text-white shadow-md shadow-cyan-500/20"
+                  : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
+              }`}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-base">{tab.icon}</span>
+              <span className="flex-1">{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* FAQ */}
-      <div className="mt-12 space-y-4 rounded-3xl border border-slate-200/80 bg-white/80 p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">FAQ</p>
-            <h2 className="font-display text-3xl font-bold text-slate-900">Got questions?</h2>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-lg shadow-black/20 transition-colors hover:bg-white/8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-300">{current.label}</p>
+            <h3 className="text-2xl font-semibold text-white">{current.title}</h3>
+            <p className="text-sm text-slate-300">{current.eyebrow}</p>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {faqs.map(item => (
-            <div key={item.q} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-inner">
-              <p className="text-sm font-semibold text-slate-900">{item.q}</p>
-              <p className="mt-2 text-sm text-slate-600">{item.a}</p>
-            </div>
-          ))}
-        </div>
+
+        <div className="mt-6">{current.body}</div>
       </div>
+    </div>
+  );
+}
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.5,
+      ease: "easeOut",
+    },
+  },
+};
+
+export default function Home() {
+  return (
+    <div className="min-h-screen overflow-hidden bg-slate-950 text-slate-50 selection:bg-emerald-300/20">
+      <Navbar />
+
+      {/* Hero */}
+      <section className="relative px-4 pb-20 pt-32 lg:pb-32 lg:pt-48">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-[10%] top-[12%] h-[500px] w-[500px] rounded-full bg-emerald-400/15 blur-[140px]" />
+          <div className="absolute right-[8%] top-[24%] h-[420px] w-[420px] rounded-full bg-cyan-500/15 blur-[120px]" />
+        </div>
+
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="relative z-10 mx-auto max-w-4xl text-center">
+          <motion.div
+            variants={itemVariants}
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-sm"
+          >
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-sm font-medium text-slate-200">Version 2.0 is live</span>
+          </motion.div>
+
+          <motion.h1
+            variants={itemVariants}
+            className="mb-8 text-5xl font-bold leading-[0.9] tracking-tight sm:text-7xl lg:text-8xl"
+          >
+            Awareness that pays for itself
+          </motion.h1>
+
+          <motion.p
+            variants={itemVariants}
+            className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl"
+          >
+            Looply is your one-stop hub for staying on top of subscriptions, bills, and return deadlines. We keep you accountable, so you never pay for a month you didn&apos;t want or keep a shirt that didn&apos;t fit.
+          </motion.p>
+
+          <motion.div variants={itemVariants} className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link href="/sign-up">
+              <ShinyButton className="w-full sm:w-auto">Start Saving Now</ShinyButton>
+            </Link>
+            <Link href="/pricing">
+              <ShinyButton variant="secondary" className="w-full sm:w-auto group">
+                View Pricing <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </ShinyButton>
+            </Link>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Feature Tabs */}
+      <section id="features" className="relative bg-slate-900/40 py-24">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <FeatureTabs />
+        </div>
+      </section>
 
       {/* CTA */}
-      <div className="mt-12 overflow-hidden rounded-3xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-8 shadow-lg">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Ready?</p>
-            <h3 className="font-display text-3xl font-bold text-slate-900">Never miss a deadline again</h3>
-            <p className="text-sm text-slate-600">Join thousands of organized people who save money and time with Looply.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/sign-up"
-              className="inline-flex items-center gap-2 rounded-md bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-200/60 transition hover:-translate-y-0.5 hover:bg-emerald-600"
-            >
-              Start Free Today
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              No credit card required
-            </Link>
-          </div>
-        </div>
-      </div>
+      <section className="relative overflow-hidden px-4 py-28">
+        <div className="absolute inset-0 origin-top-left scale-110 bg-emerald-400/10 skew-y-3" />
+        <div className="relative z-10 mx-auto max-w-4xl text-center">
+          <h2 className="mb-8 text-4xl font-display font-bold sm:text-5xl">Ready to take control?</h2>
+          <p className="mb-10 text-xl text-slate-200">Join thousands of users saving an average of $340/year.</p>
 
-      {/* Footer */}
-      <div className="mt-10 grid gap-6 rounded-2xl border border-slate-200/70 bg-white/80 p-6 shadow-sm md:grid-cols-4">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-            Looply
-          </div>
-          <p className="text-sm text-slate-600">Premium reminders for subscription renewals and return deadlines. Never miss a deadline again.</p>
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Product</p>
-          <div className="mt-2 space-y-1 text-sm text-slate-600">
-            <Link href="/dashboard">Features</Link>
-            <Link href="/dashboard/analytics">Analytics</Link>
-            <Link href="/dashboard/calendar">Calendar</Link>
+          <div className="flex flex-col items-center gap-6">
+            <Link href="/sign-up">
+              <ShinyButton className="h-14 px-10 text-lg">Get Started for Free</ShinyButton>
+            </Link>
+            <div className="flex flex-col gap-3 text-sm text-slate-300 sm:flex-row sm:gap-8">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" /> No credit card required
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Cancel anytime
+              </div>
+            </div>
           </div>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Company</p>
-          <div className="mt-2 space-y-1 text-sm text-slate-600">
-            <Link href="/dashboard">About</Link>
-            <Link href="/dashboard">Blog</Link>
-            <Link href="/dashboard">Contact</Link>
+      </section>
+
+      <footer className="bg-black/95 border-t border-white/5 py-12 text-sm text-slate-300">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <div className="text-lg font-semibold text-white">Looply.</div>
+            <p className="text-sm text-slate-400">The premium standard for financial reminders.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:gap-4">
+            <Link href="https://www.linkedin.com/in/your-profile" className="flex items-center gap-2 text-slate-200 hover:text-white">
+              <Linkedin className="h-4 w-4" />
+              <span>LinkedIn</span>
+            </Link>
+            <Link href="https://github.com/" className="flex items-center gap-2 text-slate-200 hover:text-white">
+              <Github className="h-4 w-4" />
+              <span>GitHub</span>
+            </Link>
+            <Link href="/privacy" className="flex items-center gap-2 text-slate-200 hover:text-white">
+              <Shield className="h-4 w-4" />
+              <span>Privacy</span>
+            </Link>
+            <Link href="/terms" className="flex items-center gap-2 text-slate-200 hover:text-white">
+              <FileText className="h-4 w-4" />
+              <span>Terms of Service</span>
+            </Link>
+            <Link href="/faq" className="flex items-center gap-2 text-slate-200 hover:text-white">
+              <HelpCircle className="h-4 w-4" />
+              <span>FAQ</span>
+            </Link>
           </div>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Legal</p>
-          <div className="mt-2 space-y-1 text-sm text-slate-600">
-            <Link href="/dashboard">Privacy</Link>
-            <Link href="/dashboard">Terms</Link>
-            <Link href="/dashboard">Security</Link>
-          </div>
+        <div className="mx-auto mt-6 max-w-6xl px-4 text-slate-500">
+          © 2026 Looply Inc. All rights reserved.
         </div>
-      </div>
-    </section>
-    </div>
+      </footer>
     </div>
   );
 }

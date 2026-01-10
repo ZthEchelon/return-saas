@@ -40,13 +40,13 @@ export default async function CalendarPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full bg-white/10 px-3 py-1 font-semibold text-white backdrop-blur">Automation</span>
-            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/automation">
+            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/automation">
               Overview
             </Link>
-            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/automation/review">
+            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/automation/review">
               Review
             </Link>
-            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/automation/rules">
+            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/automation/rules">
               Rules
             </Link>
           </div>

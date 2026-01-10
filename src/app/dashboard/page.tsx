@@ -46,7 +46,11 @@ function daysUntil(date: Date) {
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams?: { [key: string]: string | string[] | undefined } }) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
@@ -103,7 +107,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
     .filter(r => r.refundedDate && r.refundedDate.getUTCFullYear() === nowDate.getUTCFullYear() && r.refundedDate.getUTCMonth() === nowDate.getUTCMonth())
     .reduce((sum, r) => sum + (r.refundAmountCents ?? 0), 0);
 
-  const search = typeof searchParams?.search === "string" ? searchParams.search.trim().toLowerCase() : "";
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const search =
+    typeof resolvedSearchParams.search === "string" ? resolvedSearchParams.search.trim().toLowerCase() : "";
 
   const nextBillDate = (dueDay: number) => {
     const currentMonth = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), dueDay));
@@ -393,9 +399,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Automation</p>
-            <p className="text-sm text-slate-200">Inbox and rules live in Automation. Enable lead times to reduce noise.</p>
+            <p className="text-sm text-slate-200">Inbox review and rules now live inside Settings.</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/dashboard/automation" className="pill-link text-xs">Review inbox</Link>
+              <Link href="/dashboard/settings/automation/review" className="pill-link text-xs">Review inbox</Link>
               <Link href="/dashboard/settings" className="pill-link text-xs">Set lead times</Link>
             </div>
           </div>

@@ -45,13 +45,13 @@ export default async function ReceiptsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white/80 p-6 shadow-sm">
         <div>
           <h1 className="text-3xl font-semibold text-slate-900">Receipts</h1>
-          <p className="text-sm text-slate-600">Upload receipts to convert them into suggestions and returns.</p>
+          <p className="text-sm text-slate-600">Upload receipts here to convert them into suggestions and returns.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link className="pill-link" href="/dashboard/receipts/upload">
             Upload receipt
           </Link>
-          <Link className="pill-link" href="/dashboard/automation/review">
+          <Link className="pill-link" href="/dashboard/settings/automation/review">
             Go to Inbox Review
           </Link>
         </div>

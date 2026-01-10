@@ -21,9 +21,12 @@ type ReturnRow = {
   trackingNumber: string | null;
 };
 
-export default async function ReturnsPage() {
+export default async function ReturnsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const { userId } = await auth();
   if (!userId) return <div className="text-slate-200">Unauthorized</div>;
+
+  const params = await searchParams;
+  const bucket: "active" | "refunded" = params?.bucket === "refunded" ? "refunded" : "active";
 
   const returns: ReturnRow[] = await prisma.returnItem.findMany({
     where: { userId },
@@ -102,16 +105,16 @@ export default async function ReturnsPage() {
         </div>
 
         <div className="relative mt-4 grid gap-3 md:grid-cols-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Total returns</p>
-            <p className="mt-1 font-display text-2xl text-white">{stats.total}</p>
-            <p className="text-xs text-slate-400">{stats.inProgress} active</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-400/15 to-emerald-500/10 p-4">
+          <Link href="/dashboard/returns?bucket=active" className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-emerald-300/50 hover:-translate-y-0.5">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Need to Return</p>
+            <p className="mt-1 font-display text-2xl text-white">{stats.inProgress}</p>
+            <p className="text-xs text-slate-400">{stats.total} total captured</p>
+          </Link>
+          <Link href="/dashboard/returns?bucket=refunded" className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-400/15 to-emerald-500/10 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300/60">
             <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-100">Refunded</p>
             <p className="mt-1 font-display text-2xl text-white">{stats.refunded}</p>
             <p className="text-xs text-emerald-100">Received {formatMoney(stats.totalRefunded, "CAD")}</p>
-          </div>
+          </Link>
           <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/20 to-emerald-500/10 p-4">
             <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-100">Potential refunds</p>
             <p className="mt-1 font-display text-2xl text-white">{formatMoney(stats.potentialRefunds, "CAD")}</p>
@@ -140,7 +143,7 @@ export default async function ReturnsPage() {
         </div>
       </div>
 
-      <ReturnsBoard items={serialized} stats={stats} />
+      <ReturnsBoard items={serialized} stats={stats} initialBucket={bucket === "refunded" ? "refunded" : "active"} />
     </div>
   );
 }

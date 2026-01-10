@@ -79,7 +79,7 @@ export default function AutomationHome() {
             </button>
           )}
 
-          <Link className="rounded-xl border px-3 py-2 text-sm hover:bg-neutral-50" href="/dashboard/automation/review">
+          <Link className="rounded-xl border px-3 py-2 text-sm hover:bg-neutral-50" href="/dashboard/settings/automation/review">
             Inbox Review
           </Link>
         </div>

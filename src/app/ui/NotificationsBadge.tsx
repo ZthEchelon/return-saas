@@ -11,13 +11,16 @@ export default function NotificationsBadge() {
 
   return (
     <Link
-      href="/dashboard/automation/review"
-      className="relative inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-slate-50 transition hover:border-cyan-200/40 hover:bg-white/20 hover:text-white"
+      href="/dashboard/notifications"
+      className="relative inline-flex items-center justify-center w-10 h-10 rounded-lg border border-white/15 bg-white/5 text-xl transition hover:border-cyan-200/40 hover:bg-white/15"
+      title="Notifications"
     >
-      Inbox
-      <span className="rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 px-2 py-0.5 text-[11px] font-bold text-slate-950 shadow-md shadow-cyan-500/30">
-        {count}
-      </span>
+      🔔
+      {count > 0 && (
+        <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 flex items-center justify-center text-[11px] font-bold text-slate-950 shadow-md shadow-cyan-500/30">
+          {count}
+        </span>
+      )}
     </Link>
   );
 }

@@ -19,7 +19,20 @@ export async function POST(req: NextRequest) {
 
   const authed = await getAuthedGmail(userId);
   if (!authed) {
-    return NextResponse.json({ error: "Gmail not connected" }, { status: 400 });
+    // Gracefully no-op instead of throwing so dashboards don't error/noise
+    return NextResponse.json({
+      error: "Gmail not connected",
+      totalCount: 0,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      offset,
+      batchSize,
+      hasMore: false,
+      nextOffset: null,
+      errors: [],
+      progress: 0,
+    });
   }
   const { gmail } = authed;
 

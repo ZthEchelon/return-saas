@@ -45,5 +45,5 @@ export async function GET(req: Request) {
     },
   });
 
-  return NextResponse.redirect("http://localhost:3000/dashboard/automation?connected=1");
+  return NextResponse.redirect("http://localhost:3000/dashboard/settings/automation?connected=1");
 }

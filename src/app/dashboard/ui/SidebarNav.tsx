@@ -28,7 +28,7 @@ export function SidebarNav({
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer ${
                 active
                   ? "border-cyan-200/50 bg-white/15 text-white shadow-cyan-500/25"
                   : "border-white/10 bg-white/5 text-slate-200 hover:border-white/20 hover:bg-white/10"
@@ -51,7 +51,7 @@ export function SidebarNav({
           <Link
             key={item.href}
             href={item.href}
-            className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl border px-3 py-3 transition ${
+            className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl border px-3 py-3 transition cursor-pointer ${
               active
                 ? "border-cyan-200/60 bg-white/10 shadow-lg shadow-cyan-500/15"
                 : "border-white/5 bg-white/5 hover:border-white/15 hover:bg-white/10"
