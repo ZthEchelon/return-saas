@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Shield,
 } from "lucide-react";
+import { useUser, UserButton } from "@clerk/nextjs";
 
 type ButtonVariant = "primary" | "secondary";
 
@@ -41,6 +42,8 @@ function ShinyButton({
 }
 
 function Navbar() {
+  const { isSignedIn, user } = useUser();
+
   const links = [
     { label: "Product", href: "/#features" },
     { label: "Pricing", href: "/pricing" },
@@ -68,12 +71,27 @@ function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/sign-in" className="hidden rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-100 hover:border-white/30 hover:bg-white/5 sm:inline-flex">
-            Log in
-          </Link>
-          <Link href="/sign-up" className="inline-flex rounded-full bg-white px-4 py-2 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/30 hover:-translate-y-0.5">
-            Get started
-          </Link>
+          {isSignedIn ? (
+            <>
+              <span className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 sm:inline-flex">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                Hi, {user?.firstName ?? "there"}
+              </span>
+              <UserButton afterSignOutUrl="/" />
+            </>
+          ) : (
+            <>
+              <Link href="/sign-in" className="hidden rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-100 hover:border-white/30 hover:bg-white/5 sm:inline-flex">
+                Log in
+              </Link>
+              <Link
+                href="/sign-up"
+                className="inline-flex rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-fuchsia-400 px-4 py-2 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/30 hover:-translate-y-0.5"
+              >
+                Get started
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
