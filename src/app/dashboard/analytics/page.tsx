@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, ReactNode } from "react";
+import { motion } from "framer-motion";
+import { Sparkles, Flame, TrendingUp, PieChart as PieIcon, RefreshCcw, ArrowUpRight } from "lucide-react";
 import { formatMoney } from "@/lib/events";
 
 interface Analytics {
@@ -57,189 +59,216 @@ export default function AnalyticsDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-slate-500">Loading analytics...</div>
-      </div>
+      <div className="flex items-center justify-center py-12 text-slate-300">Loading analytics…</div>
     );
   }
 
   if (!data) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="rounded-2xl border border-rose-300/50 bg-rose-500/10 p-4 text-sm text-rose-100">
         Failed to load analytics. Try refreshing the page.
       </div>
     );
   }
 
+  const cards = [
+    { label: "Subscriptions", value: formatMoney(data.currentMonthStats.subscriptionsTotal, "CAD"), accent: "from-emerald-400/20 to-emerald-500/10", icon: <Sparkles className="h-5 w-5 text-emerald-200" /> },
+    { label: "Bills", value: formatMoney(data.currentMonthStats.billsTotal, "CAD"), accent: "from-cyan-400/20 to-blue-500/10", icon: <Flame className="h-5 w-5 text-cyan-200" /> },
+    { label: "Refunds", value: formatMoney(data.currentMonthStats.refundsTotal, "CAD"), accent: "from-fuchsia-400/20 to-rose-500/10", icon: <RefreshCcw className="h-5 w-5 text-fuchsia-200" /> },
+    { label: "Est. Monthly", value: formatMoney(data.currentMonthStats.estimatedMonthly, "CAD"), accent: "from-amber-400/20 to-emerald-400/10", icon: <TrendingUp className="h-5 w-5 text-amber-200" /> },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
-        <p className="mt-1 text-slate-600">Spending overview and insights</p>
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-[#0b1220] p-6 shadow-2xl shadow-black/50">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-24 top-0 h-60 w-60 rounded-full bg-cyan-500/15 blur-[120px]" />
+          <div className="absolute right-[-80px] top-12 h-60 w-60 rounded-full bg-emerald-400/15 blur-[120px]" />
+        </div>
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-cyan-100">Analytics HQ</p>
+            <h1 className="font-display text-4xl text-white">See where your money and time go.</h1>
+            <p className="max-w-3xl text-sm text-slate-200/80">
+              Stacked trends, category mix, and refund velocity. Built to keep you honest, not overwhelmed.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full bg-white/10 px-3 py-1 font-semibold text-white">Live sync</span>
+            <span className="rounded-full bg-emerald-500/20 px-3 py-1 font-semibold text-emerald-100">Auto-refresh</span>
+          </div>
+        </div>
       </div>
 
-      {/* Current Month Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Subscriptions"
-          value={formatMoney(data.currentMonthStats.subscriptionsTotal, "CAD")}
-          color="emerald"
-          icon="📅"
-        />
-        <StatCard
-          label="Bills"
-          value={formatMoney(data.currentMonthStats.billsTotal, "CAD")}
-          color="blue"
-          icon="💳"
-        />
-        <StatCard
-          label="Refunds"
-          value={formatMoney(data.currentMonthStats.refundsTotal, "CAD")}
-          color="green"
-          icon="✅"
-        />
-        <StatCard
-          label="Est. Monthly"
-          value={formatMoney(data.currentMonthStats.estimatedMonthly, "CAD")}
-          color="slate"
-          icon="📊"
-        />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card, idx) => (
+          <motion.div
+            key={card.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.05 }}
+            className={`relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/60 p-4 shadow-lg`}
+          >
+            <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent}`} />
+            <div className="relative flex items-start justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">{card.label}</p>
+                <p className="mt-2 text-2xl font-bold text-white">{card.value}</p>
+              </div>
+              <div className="rounded-xl bg-white/5 p-2">{card.icon}</div>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-slate-500">6-Month Trend</p>
-              <p className="text-sm text-slate-600">Stacked bars by type</p>
-            </div>
-            <Legend
-              items={[
-                { label: "Subscriptions", color: "#10b981" },
-                { label: "Bills", color: "#3b82f6" },
-                { label: "Refunds", color: "#22c55e" },
-              ]}
-            />
-          </div>
+        <GlassCard title="6-Month Trend" subtitle="Stacked bars by type" badge="Stacked view" icon={<ArrowUpRight className="h-4 w-4 text-cyan-200" />}>
+          <Legend
+            items={[
+              { label: "Subscriptions", color: "#34d399" },
+              { label: "Bills", color: "#60a5fa" },
+              { label: "Refunds", color: "#a78bfa" },
+            ]}
+          />
           <BarChart data={data.sixMonthTrend} />
-        </div>
+        </GlassCard>
 
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Total Over Time</p>
-              <p className="text-sm text-slate-600">Line chart of combined spend</p>
-            </div>
-            <Legend items={[{ label: "Total", color: "#0ea5e9" }]} />
-          </div>
+        <GlassCard title="Total Over Time" subtitle="Combined spend" badge="Line" icon={<TrendingUp className="h-4 w-4 text-emerald-200" />}>
+          <Legend items={[{ label: "Total", color: "#22d3ee" }]} />
           <LineChart data={data.sixMonthTrend} />
-        </div>
+        </GlassCard>
 
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Category Mix</p>
-              <p className="text-sm text-slate-600">Subscriptions vs Bills vs Returns</p>
-            </div>
-            <Legend
-              items={[
-                { label: "Subscriptions", color: "#10b981" },
-                { label: "Bills", color: "#3b82f6" },
-                { label: "Returns", color: "#a855f7" },
-              ]}
-            />
-          </div>
+        <GlassCard title="Category Mix" subtitle="Subscriptions vs Bills vs Returns" badge="Share" icon={<PieIcon className="h-4 w-4 text-fuchsia-200" />}>
+          <Legend
+            items={[
+              { label: "Subscriptions", color: "#34d399" },
+              { label: "Bills", color: "#60a5fa" },
+              { label: "Returns", color: "#a78bfa" },
+            ]}
+          />
           <PieChart data={data.categoryBreakdown} />
-        </div>
+        </GlassCard>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Category Breakdown */}
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Category Breakdown</h2>
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-slate-600">Subscriptions</span>
-                <span className="font-semibold text-slate-900">{data.categoryBreakdown.subscriptions}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500"
-                  style={{ width: `${data.categoryBreakdown.subscriptions}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-slate-600">Bills</span>
-                <span className="font-semibold text-slate-900">{data.categoryBreakdown.bills}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-blue-500"
-                  style={{ width: `${data.categoryBreakdown.bills}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Return Stats */}
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Return Stats</h2>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600">Total Returns</span>
-              <span className="font-semibold text-slate-900">{data.returnStats.totalReturned}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600">Refunded Amount</span>
-              <span className="font-semibold text-green-600">
-                {formatMoney(data.returnStats.refundedAmount, "CAD")}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600">Pending Refunds</span>
-              <span className="font-semibold text-amber-600">
-                {formatMoney(data.returnStats.pendingAmount, "CAD")}
-              </span>
-            </div>
-            {data.returnStats.averageRefundDays > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">Avg Refund Time</span>
-                <span className="font-semibold text-slate-900">
-                  {data.returnStats.averageRefundDays} days
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+        <GlassCard title="Category Breakdown" subtitle="Where your spend lives" badge="Live mix">
+          <CategoryBreakdown data={data.categoryBreakdown} />
+        </GlassCard>
+        <GlassCard title="Return Stats" subtitle="Refund velocity + totals" badge="Returns">
+          <ReturnStats stats={data.returnStats} />
+        </GlassCard>
       </div>
 
-      {/* Top Merchants */}
-      {data.topMerchants.length > 0 && (
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Top Merchants</h2>
+      {data.topMerchants.length > 0 ? (
+        <GlassCard title="Top Merchants" subtitle="Where money clusters" badge="Merchants">
           <div className="space-y-3">
             {data.topMerchants.map(merchant => (
-              <div key={merchant.merchant} className="flex items-center justify-between border-b pb-3 last:border-0">
+              <div key={merchant.merchant} className="flex items-center justify-between border-b border-white/5 pb-3 last:border-0">
                 <div>
-                  <p className="font-medium text-slate-900">{merchant.merchant}</p>
-                  <p className="text-xs text-slate-500">{merchant.count} transaction{merchant.count > 1 ? "s" : ""}</p>
+                  <p className="font-semibold text-white">{merchant.merchant}</p>
+                  <p className="text-xs text-slate-400">{merchant.count} transaction{merchant.count > 1 ? "s" : ""}</p>
                 </div>
-                <span className="font-semibold text-slate-900">
+                <span className="font-semibold text-emerald-200">
                   {formatMoney(merchant.totalSpent, "CAD")}
                 </span>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        </GlassCard>
+      ) : null}
     </div>
   );
 }
+
+function GlassCard({
+  title,
+  subtitle,
+  badge,
+  icon,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 p-5 shadow-xl shadow-black/30">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+      <div className="relative flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">{title}</p>
+          {subtitle ? <p className="text-sm text-slate-300">{subtitle}</p> : null}
+        </div>
+        {badge ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-100">
+            {icon}
+            {badge}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
+function Legend({ items }: { items: Array<{ label: string; color: string }> }) {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+      {items.map(item => (
+        <span key={item.label} className="flex items-center gap-1">
+          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function CategoryBreakdown({ data }: { data: { subscriptions: number; bills: number; returns: number } }) {
+  const rows = [
+    { label: "Subscriptions", value: data.subscriptions, color: "bg-emerald-400" },
+    { label: "Bills", value: data.bills, color: "bg-cyan-400" },
+    { label: "Returns", value: data.returns, color: "bg-fuchsia-400" },
+  ];
+  return (
+    <div className="space-y-3">
+      {rows.map(row => (
+        <div key={row.label}>
+          <div className="mb-1 flex items-center justify-between text-sm">
+            <span className="text-slate-300">{row.label}</span>
+            <span className="font-semibold text-white">{row.value}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/5">
+            <div className={`h-full ${row.color}`} style={{ width: `${row.value}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReturnStats({ stats }: { stats: Analytics["returnStats"] }) {
+  return (
+    <div className="space-y-3 text-sm text-slate-200">
+      <Row label="Total Returns" value={stats.totalReturned} />
+      <Row label="Refunded Amount" value={formatMoney(stats.refundedAmount, "CAD")} accent="text-emerald-200" />
+      <Row label="Pending Refunds" value={formatMoney(stats.pendingAmount, "CAD")} accent="text-amber-200" />
+      {stats.averageRefundDays > 0 ? <Row label="Avg Refund Time" value={`${stats.averageRefundDays} days`} /> : null}
+    </div>
+  );
+}
+
+function Row({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-slate-400">{label}</span>
+      <span className={`font-semibold text-white ${accent ?? ""}`}>{value}</span>
+    </div>
+  );
+}
+
 
 interface StatCardProps {
   label: string;
@@ -265,19 +294,6 @@ function StatCard({ label, value, color, icon }: StatCardProps) {
         </div>
         <span className="text-2xl">{icon}</span>
       </div>
-    </div>
-  );
-}
-
-function Legend({ items }: { items: Array<{ label: string; color: string }> }) {
-  return (
-    <div className="flex items-center gap-3 text-xs text-slate-600">
-      {items.map(item => (
-        <span key={item.label} className="flex items-center gap-1">
-          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-          {item.label}
-        </span>
-      ))}
     </div>
   );
 }

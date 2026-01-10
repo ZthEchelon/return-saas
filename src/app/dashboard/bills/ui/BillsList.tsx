@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, Clock3 } from "lucide-react";
 
 type CalendarEvent = {
   id: string;
@@ -96,38 +97,59 @@ export default function BillsList() {
   }
 
   if (billEvents.length === 0) {
-    return <div className="rounded-2xl border bg-white/50 p-4 text-sm opacity-70">No bill events in range.</div>;
+    return <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">No bill events in range.</div>;
   }
 
   return (
     <div className="space-y-3">
-      {msg ? <div className="text-sm text-red-600">{msg}</div> : null}
+      {msg ? <div className="text-sm text-rose-400">{msg}</div> : null}
 
-      {billEvents.map((e) => {
+      {billEvents.map(e => {
         const paid = e.billStatus === "PAID";
         const disabled = busyId === e.id;
 
         return (
-          <div key={e.id} className="rounded-2xl border bg-white/50 p-4 shadow-sm flex items-center justify-between gap-3 hover:border-slate-300 transition">
-            <Link href={`/dashboard/bills/${e.source.sourceId}`} className="flex-1 space-y-1">
-              <div className="text-sm font-semibold">
-                {e.title} <span className="ml-2 text-xs opacity-60">{e.date}</span>
-              </div>
-              <div className="text-sm opacity-70">
-                {money(e.amountCents, e.currency)} ·{" "}
-                <span className={paid ? "text-green-700" : "text-amber-700"}>
-                  {paid ? "PAID" : "DUE"}
-                </span>
-              </div>
-            </Link>
+          <div
+            key={e.id}
+            className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-[0_12px_30px_-16px_rgba(0,0,0,0.5)] transition hover:-translate-y-0.5 hover:border-emerald-300/40"
+          >
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute left-[-40px] top-[-60px] h-40 w-40 rounded-full bg-cyan-500/10 blur-[100px]" />
+              <div className="absolute right-[-60px] bottom-[-40px] h-40 w-40 rounded-full bg-emerald-500/10 blur-[100px]" />
+            </div>
 
-            <button
-              className="rounded-xl border px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60"
-              onClick={() => togglePaid(e)}
-              disabled={disabled}
-            >
-              {paid ? "Mark due" : "Mark paid"}
-            </button>
+            <div className="relative flex items-start justify-between gap-3">
+              <Link href={`/dashboard/bills/${e.source.sourceId}`} className="flex-1 space-y-1">
+                <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                  {paid ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : <Clock3 className="h-4 w-4 text-amber-300" />}
+                  <span>{e.title}</span>
+                  <span className="ml-2 text-xs text-slate-400">{e.date}</span>
+                </div>
+                <div className="text-sm text-slate-300">
+                  {money(e.amountCents, e.currency)} ·{" "}
+                  <span className={paid ? "text-emerald-200" : "text-amber-200"}>{paid ? "PAID" : "DUE"}</span>
+                </div>
+              </Link>
+
+              <button
+                className={`relative rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                  paid
+                    ? "border-emerald-200/60 bg-emerald-500/10 text-emerald-100 hover:border-emerald-300/80"
+                    : "border-white/10 bg-white/5 text-slate-200 hover:border-cyan-200/50 hover:text-white"
+                } disabled:opacity-60`}
+                onClick={() => togglePaid(e)}
+                disabled={disabled}
+              >
+                {paid ? "Mark due" : "Mark paid"}
+              </button>
+            </div>
+
+            {paid ? null : (
+              <div className="relative mt-3 flex items-center gap-2 text-xs text-amber-200">
+                <AlertCircle className="h-4 w-4" />
+                <span>Due soon—mark paid when completed.</span>
+              </div>
+            )}
           </div>
         );
       })}
