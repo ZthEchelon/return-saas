@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ReactNode } from "react";
 import { UserButton } from "@clerk/nextjs";
 import NotificationsBadgeServer from "../ui/NotificationsBadgeServer";
@@ -27,13 +28,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="relative flex min-h-screen">
         <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 z-40 w-[88px] shrink-0 flex-col gap-6 border-r border-white/10 bg-white/5 px-3 py-6 backdrop-blur-xl overflow-visible">
           <Link href="/" className="group flex flex-col items-center gap-1 px-2">
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-emerald-400 text-xl font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition duration-200 group-hover:scale-[1.05]">
-              ⟳
-            </div>
-            <div className="text-center">
-              <div className="font-display text-sm font-semibold tracking-tight leading-tight">Looply</div>
-              <p className="text-[9px] uppercase tracking-[0.2em] text-slate-400">reminders</p>
-            </div>
+            <Image
+              src="/site.png"
+              alt="Looply logo"
+              width={56}
+              height={56}
+              className="h-14 w-14 shrink-0 rounded-2xl object-contain drop-shadow-lg transition duration-200 group-hover:scale-[1.05]"
+              priority
+            />
+            <span className="sr-only">Looply</span>
           </Link>
 
           <div className="space-y-1 flex-1 overflow-y-auto">

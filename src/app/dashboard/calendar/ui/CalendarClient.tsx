@@ -96,7 +96,7 @@ function humanLabel(ev: CalendarEvent) {
     case "REFUNDED":
       return "Refunded";
     default:
-      return ev.type.replaceAll("_", " ").toLowerCase();
+      return String(ev.type).replace(/_/g, " ").toLowerCase();
   }
 }
 

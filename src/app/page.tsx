@@ -5,6 +5,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ReactNode, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -53,13 +54,15 @@ function Navbar() {
     <header className="fixed left-0 right-0 top-0 z-40 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-emerald-400 text-lg font-bold text-slate-950 shadow-lg shadow-cyan-500/30">
-            L
-          </div>
-          <div>
-            <div className="font-display text-lg font-semibold text-white">Looply</div>
-            <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400">reminders</div>
-          </div>
+          <Image
+            src="/site.png"
+            alt="Looply logo"
+            width={48}
+            height={48}
+            className="h-11 w-11 rounded-2xl object-contain drop-shadow-lg"
+            priority
+          />
+          <span className="sr-only">Looply</span>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
