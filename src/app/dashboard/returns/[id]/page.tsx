@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/events";
+import { formatMoney } from "@/lib/calendarEvents";
 import ReturnTransactionHistory from "@/app/dashboard/returns/ui/ReturnTransactionHistory";
 
 export default async function ReturnDetailPage({

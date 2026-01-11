@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { scheduleNextDigestJob } from "@/lib/notifications/digestJobs";
+import { scheduleNextDigestJob } from "@/lib/notifications/digestJobScheduler";
 
 async function main() {
   const prefs = await prisma.notificationPreference.findMany({

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
-import { buildDigestForUser } from "@/lib/notifications/digest";
-import { claimDueDigestJobs, nextRetrySendAt, scheduleNextDigestJob } from "@/lib/notifications/digestJobs";
+import { buildDigestForUser } from "@/lib/notifications/digestBuilder";
+import { claimDueDigestJobs, nextRetrySendAt, scheduleNextDigestJob } from "@/lib/notifications/digestJobScheduler";
 
 export const runtime = "nodejs";
 

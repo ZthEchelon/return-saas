@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthedGmail } from "@/lib/gmail";
-import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/parser";
-import type { Purchase } from "@/lib/receipts/parser";
+import { getAuthedGmail } from "@/lib/gmailClient";
+import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/gmailPurchaseParser";
+import type { Purchase } from "@/lib/receipts/gmailPurchaseParser";
 
 /**
  * Reprocess all Gmail receipts with pagination and progress tracking

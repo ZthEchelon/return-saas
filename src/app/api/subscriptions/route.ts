@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/domainScheduler";
+import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/eventNotificationScheduler";
 
 export async function POST(req: Request) {
   const { userId } = await auth();

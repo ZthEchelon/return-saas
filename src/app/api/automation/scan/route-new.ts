@@ -1,7 +1,7 @@
 // Scan Gmail emails and create automation suggestions
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getAuthedGmail } from "@/lib/gmail";
+import { getAuthedGmail } from "@/lib/gmailClient";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";

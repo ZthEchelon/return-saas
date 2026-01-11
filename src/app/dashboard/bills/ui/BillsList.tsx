@@ -48,9 +48,28 @@ export default function BillsList() {
 
   async function load() {
     setMsg(null);
-    const res = await fetch(`/api/events?start=${range.start}&end=${range.end}`, { cache: "no-store" });
-    const data = await res.json();
-    setEvents(data.events ?? []);
+
+    try {
+      const res = await fetch(`/api/events?start=${range.start}&end=${range.end}`, { cache: "no-store" });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Failed to load events (${res.status})`);
+      }
+
+      const text = await res.text();
+      if (!text) {
+        setEvents([]);
+        return;
+      }
+
+      const data = JSON.parse(text);
+      setEvents(data.events ?? []);
+    } catch (err) {
+      console.error(err);
+      setMsg(err instanceof Error ? err.message : "Failed to load events.");
+      setEvents([]);
+    }
   }
 
   useEffect(() => {

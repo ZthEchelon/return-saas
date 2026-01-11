@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleNextDigestJob, cancelPendingDigestJobs } from "@/lib/notifications/digestJobs";
+import { scheduleNextDigestJob, cancelPendingDigestJobs } from "@/lib/notifications/digestJobScheduler";
 
 export const runtime = "nodejs";
 

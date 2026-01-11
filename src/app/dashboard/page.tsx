@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/events";
+import { formatMoney } from "@/lib/calendarEvents";
 
 type BillRow = { id: string; amountCents: number | null; autopay: boolean; status: string };
 type SubscriptionRow = { id: string; name: string; amountCents: number; status: string; renewalDate: Date };

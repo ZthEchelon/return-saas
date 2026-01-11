@@ -1,6 +1,6 @@
-import { getBillTransactionHistory } from "@/lib/transactions";
-import { formatMoney } from "@/lib/events";
-import type { TransactionRecord } from "@/lib/transactions";
+import { getBillTransactionHistory } from "@/lib/transactionHistory";
+import { formatMoney } from "@/lib/calendarEvents";
+import type { TransactionRecord } from "@/lib/transactionHistory";
 
 interface BillTransactionHistoryProps {
   userId: string;

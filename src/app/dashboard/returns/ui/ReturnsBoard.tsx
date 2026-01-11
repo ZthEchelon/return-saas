@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Check, CheckCircle2, Package, RefreshCw, Circle, Filter } from "lucide-react";
-import { formatMoney } from "@/lib/events";
+import { formatMoney } from "@/lib/calendarEvents";
 
 type ReturnItem = {
   id: string;

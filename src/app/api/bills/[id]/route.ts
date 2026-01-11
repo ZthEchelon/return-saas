@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleBillDueSoon } from "@/lib/notifications/domainScheduler";
+import { scheduleBillDueSoon } from "@/lib/notifications/eventNotificationScheduler";
 // no prisma enum import to avoid version/type export issues
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

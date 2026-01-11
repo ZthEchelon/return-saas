@@ -2,7 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import ReceiptUploadForm from "@/app/api/receipts/upload/ui/ReceiptUploadForm";
+import ReceiptUploadForm from "./ui/ReceiptUploadForm";
 
 export default async function UploadReceiptPage() {
   const { userId } = await auth();

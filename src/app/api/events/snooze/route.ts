@@ -28,7 +28,12 @@ export async function POST(req: Request) {
   const snoozedUntil = new Date();
   snoozedUntil.setUTCDate(snoozedUntil.getUTCDate() + delayDays);
 
-  await prisma.snoozedEvent.upsert({
+  const snoozedDelegate = (prisma as any).snoozedEvent;
+  if (!snoozedDelegate?.upsert) {
+    return NextResponse.json({ error: "Snooze storage unavailable. Please run prisma generate." }, { status: 500 });
+  }
+
+  await snoozedDelegate.upsert({
     where: { userId_eventId: { userId, eventId: body.id } },
     create: { userId, eventId: body.id, snoozedUntil },
     update: { snoozedUntil },

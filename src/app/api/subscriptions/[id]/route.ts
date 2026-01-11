@@ -2,7 +2,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/domainScheduler";
+import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/eventNotificationScheduler";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();

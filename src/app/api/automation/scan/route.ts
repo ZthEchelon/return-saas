@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getAuthedGmail } from "@/lib/gmail";
+import { getAuthedGmail } from "@/lib/gmailClient";
 import { prisma } from "@/lib/prisma";
-import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/parser";
-import { saveReceiptAttachment } from "@/lib/receipts/storage";
+import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/gmailPurchaseParser";
+import { saveReceiptAttachment } from "@/lib/receipts/receiptAttachmentStorage";
 
 function guessSuggestionType(merchant: string, subject?: string | null) {
   const s = (subject ?? "").toLowerCase();

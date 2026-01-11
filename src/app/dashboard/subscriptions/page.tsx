@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/events";
+import { formatMoney } from "@/lib/calendarEvents";
 import SubscriptionsBoard from "./ui/SubscriptionsBoard";
 
 type SubscriptionRow = {

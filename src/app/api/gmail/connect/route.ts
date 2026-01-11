@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { oauthClient } from "@/lib/gmail";
+import { oauthClient } from "@/lib/gmailClient";
 
 export const runtime = "nodejs";
 

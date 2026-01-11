@@ -43,9 +43,9 @@ function Navbar() {
           <Image
             src="/site.png"
             alt="Looply logo"
-            width={48}
-            height={48}
-            className="h-11 w-11 rounded-2xl object-contain drop-shadow-lg"
+            width={64}
+            height={64}
+            className="h-12 w-24 rounded-2xl object-cover drop-shadow-2xl"
             priority
           />
           <span className="sr-only">Looply</span>

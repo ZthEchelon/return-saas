@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/domainScheduler";
+import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/eventNotificationScheduler";
 
 export const runtime = "nodejs";
 

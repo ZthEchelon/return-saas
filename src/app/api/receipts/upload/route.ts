@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { parseReceiptUpload } from "@/lib/receipts/uploadParser";
+import { parseReceiptUpload } from "@/lib/receipts/uploadedReceiptParser";
 import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";

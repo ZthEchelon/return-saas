@@ -9,7 +9,7 @@ import {
   scheduleRefundChecks,
   scheduleRefundOverdueOnce,
   scheduleBillDueSoon,
-} from "@/lib/notifications/domainScheduler";
+} from "@/lib/notifications/eventNotificationScheduler";
 
 export const runtime = "nodejs";
 

@@ -31,9 +31,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <Image
               src="/site.png"
               alt="Looply logo"
-              width={56}
-              height={56}
-              className="h-14 w-14 shrink-0 rounded-2xl object-contain drop-shadow-lg transition duration-200 group-hover:scale-[1.05]"
+              width={72}
+              height={72}
+              className="h-16 w-24 shrink-0 rounded-2xl object-cover drop-shadow-2xl transition duration-200 group-hover:scale-[1.05]"
               priority
             />
             <span className="sr-only">Looply</span>

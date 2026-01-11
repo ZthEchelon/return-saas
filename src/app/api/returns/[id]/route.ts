@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/domainScheduler";
+import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/eventNotificationScheduler";
 // avoid importing prisma enums directly; use string unions matching schema
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
