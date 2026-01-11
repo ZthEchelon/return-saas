@@ -3,8 +3,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon, scheduleReturnDelivered } from "@/lib/notifications/eventNotificationScheduler";
+import { refreshShipmentTimeline, setRefundReceived, syncRefundExpectation } from "@/lib/domain/shipping/tracking";
 // avoid importing prisma enums directly; use string unions matching schema
+
+function addDaysUTC(base: Date, days: number) {
+  const d = new Date(base);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
@@ -25,10 +32,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     purchaseDate?: Date;
     returnWindowDays?: number;
     returnBy?: Date;
-    status?: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+    status?: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "DELIVERED" | "REFUNDED";
     dropoffDate?: Date | null;
     refundedDate?: Date | null;
     trackingNumber?: string | null;
+    carrier?: string | null;
+    deliveredAt?: Date | null;
+    refundExpectedAt?: Date | null;
+    refundSlaDays?: number;
+    refundType?: string | null;
   } = {};
   if (typeof body.store === "string") data.store = body.store;
   if (typeof body.itemNote === "string" || body.itemNote === null) data.itemNote = body.itemNote;
@@ -58,10 +70,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (typeof body.status === "string") {
-    if (!["NOT_STARTED", "PACKED", "DROPPED_OFF", "REFUNDED"].includes(body.status)) {
+    if (!["NOT_STARTED", "PACKED", "DROPPED_OFF", "DELIVERED", "REFUNDED"].includes(body.status)) {
       return NextResponse.json({ error: "status invalid" }, { status: 400 });
     }
-    data.status = body.status as "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+    data.status = body.status as "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "DELIVERED" | "REFUNDED";
   }
 
   if (typeof body.dropoffDate === "string" || body.dropoffDate === null) {
@@ -74,6 +86,44 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof body.trackingNumber === "string" || body.trackingNumber === null) {
     const t = typeof body.trackingNumber === "string" ? body.trackingNumber.trim() : null;
     data.trackingNumber = t && t.length > 0 ? t : null;
+  }
+
+  if (typeof body.carrier === "string" || body.carrier === null) {
+    const c = typeof body.carrier === "string" ? body.carrier.trim() : null;
+    data.carrier = c && c.length > 0 ? c : null;
+  }
+
+  if (typeof body.deliveredAt === "string" || body.deliveredAt === null) {
+    data.deliveredAt = body.deliveredAt ? new Date(body.deliveredAt) : null;
+    if (data.deliveredAt && Number.isNaN(data.deliveredAt.getTime())) {
+      return NextResponse.json({ error: "deliveredAt invalid" }, { status: 400 });
+    }
+  }
+
+  if (typeof body.refundExpectedAt === "string" || body.refundExpectedAt === null) {
+    data.refundExpectedAt = body.refundExpectedAt ? new Date(body.refundExpectedAt) : null;
+    if (data.refundExpectedAt && Number.isNaN(data.refundExpectedAt.getTime())) {
+      return NextResponse.json({ error: "refundExpectedAt invalid" }, { status: 400 });
+    }
+  }
+
+  if (typeof body.refundSlaDays === "number") {
+    data.refundSlaDays = Math.max(1, Math.floor(body.refundSlaDays));
+  }
+
+  if (typeof body.refundType === "string" || body.refundType === null) {
+    const rt = typeof body.refundType === "string" ? body.refundType.trim().toUpperCase() : null;
+    const allowed = new Set(["ORIGINAL", "STORE_CREDIT", "PARTIAL"]);
+    data.refundType = rt && allowed.has(rt) ? rt : rt ?? null;
+  }
+
+  if (data.deliveredAt && !data.refundExpectedAt) {
+    const sla = data.refundSlaDays ?? current.refundSlaDays ?? 14;
+    data.refundExpectedAt = addDaysUTC(data.deliveredAt, sla);
+  }
+
+  if (data.deliveredAt && !data.status && current.status !== "REFUNDED") {
+    data.status = "DELIVERED";
   }
 
   const updated = await prisma.returnItem.update({
@@ -100,14 +150,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     refundedDate: updated.refundedDate,
   });
 
-  if (updated.refundExpectedBy) {
+  if (updated.refundExpectedAt) {
     await scheduleRefundOverdueOnce({
       userId,
       returnId: updated.id,
       store: updated.store,
-      refundExpectedBy: updated.refundExpectedBy ?? null,
+      refundExpectedAt: updated.refundExpectedAt ?? null,
       refundedDate: updated.refundedDate,
     });
+  }
+
+  if (updated.deliveredAt) {
+    await scheduleReturnDelivered({
+      userId,
+      returnId: updated.id,
+      store: updated.store,
+      deliveredAt: updated.deliveredAt,
+    });
+  }
+
+  if (updated.refundExpectedAt !== null) {
+    await syncRefundExpectation({
+      userId,
+      returnId: updated.id,
+      expectedAt: updated.refundExpectedAt,
+      refundType: updated.refundType ?? null,
+    });
+  }
+
+  if (updated.refundedDate) {
+    await setRefundReceived({
+      userId,
+      returnId: updated.id,
+      receivedAt: updated.refundedDate,
+      refundType: updated.refundType ?? null,
+    });
+  }
+
+  if (updated.trackingNumber) {
+    await refreshShipmentTimeline({ userId, returnId: updated.id });
   }
 
   return NextResponse.json({ ok: true });

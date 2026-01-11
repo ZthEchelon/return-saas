@@ -37,17 +37,79 @@ interface Analytics {
   };
 }
 
+type ValueEventDTO = {
+  id: string;
+  label: string;
+  type: string;
+  amountCents: number;
+  currency: string;
+  occurredAt: string;
+  isEstimated: boolean;
+  sourceId?: string | null;
+};
+
+type AtRiskItem = {
+  id: string;
+  label: string;
+  kind: "RENEWAL" | "RETURN_DEADLINE" | "REFUND_OVERDUE";
+  dueDate: string;
+  amountCents?: number | null;
+  currency?: string | null;
+};
+
+type ValueSummary = {
+  saved: {
+    totalCents: number;
+    confirmedCents: number;
+    estimatedCents: number;
+    currency: string;
+    events: ValueEventDTO[];
+  };
+  atRisk: {
+    totalCents: number;
+    currency: string;
+    horizonDays: number;
+    renewals: AtRiskItem[];
+    returnDeadlines: AtRiskItem[];
+    overdueRefunds: AtRiskItem[];
+  };
+  recovered: {
+    totalCents: number;
+    currency: string;
+    events: ValueEventDTO[];
+  };
+  plan: {
+    code: "FREE" | "PRO";
+    featureAccess: {
+      saved: boolean;
+      recovered: boolean;
+      drilldowns: boolean;
+      concierge: boolean;
+    };
+  };
+};
+
 export default function AnalyticsDashboard() {
   const [data, setData] = useState<Analytics | null>(null);
+  const [summary, setSummary] = useState<ValueSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadAnalytics() {
       try {
-        const res = await fetch("/api/analytics");
-        if (!res.ok) throw new Error("Failed to load analytics");
-        const json = await res.json();
-        setData(json);
+        const [analyticsRes, summaryRes] = await Promise.all([
+          fetch("/api/analytics"),
+          fetch("/api/analytics/summary"),
+        ]);
+
+        if (!analyticsRes.ok) throw new Error("Failed to load analytics");
+        const analyticsJson = await analyticsRes.json();
+        setData(analyticsJson);
+
+        if (summaryRes.ok) {
+          const summaryJson = await summaryRes.json();
+          setSummary(summaryJson);
+        }
       } catch (error) {
         console.error("Analytics load error:", error);
       } finally {
@@ -56,6 +118,27 @@ export default function AnalyticsDashboard() {
     }
     loadAnalytics();
   }, []);
+
+  const cards = useMemo(() => {
+    if (!data) return [];
+    return [
+      { label: "Subscriptions", value: formatMoney(data.currentMonthStats.subscriptionsTotal, "CAD"), accent: "from-emerald-400/20 to-emerald-500/10", icon: <Sparkles className="h-5 w-5 text-emerald-200" /> },
+      { label: "Bills", value: formatMoney(data.currentMonthStats.billsTotal, "CAD"), accent: "from-cyan-400/20 to-blue-500/10", icon: <Flame className="h-5 w-5 text-cyan-200" /> },
+      { label: "Refunds", value: formatMoney(data.currentMonthStats.refundsTotal, "CAD"), accent: "from-fuchsia-400/20 to-rose-500/10", icon: <RefreshCcw className="h-5 w-5 text-fuchsia-200" /> },
+      { label: "Est. Monthly", value: formatMoney(data.currentMonthStats.estimatedMonthly, "CAD"), accent: "from-amber-400/20 to-emerald-400/10", icon: <TrendingUp className="h-5 w-5 text-amber-200" /> },
+    ];
+  }, [data]);
+
+  const topRisk = useMemo(() => {
+    if (!summary) return [] as AtRiskItem[];
+    return [
+      ...summary.atRisk.renewals,
+      ...summary.atRisk.returnDeadlines,
+      ...summary.atRisk.overdueRefunds,
+    ]
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .slice(0, 3);
+  }, [summary]);
 
   if (loading) {
     return (
@@ -70,13 +153,6 @@ export default function AnalyticsDashboard() {
       </div>
     );
   }
-
-  const cards = [
-    { label: "Subscriptions", value: formatMoney(data.currentMonthStats.subscriptionsTotal, "CAD"), accent: "from-emerald-400/20 to-emerald-500/10", icon: <Sparkles className="h-5 w-5 text-emerald-200" /> },
-    { label: "Bills", value: formatMoney(data.currentMonthStats.billsTotal, "CAD"), accent: "from-cyan-400/20 to-blue-500/10", icon: <Flame className="h-5 w-5 text-cyan-200" /> },
-    { label: "Refunds", value: formatMoney(data.currentMonthStats.refundsTotal, "CAD"), accent: "from-fuchsia-400/20 to-rose-500/10", icon: <RefreshCcw className="h-5 w-5 text-fuchsia-200" /> },
-    { label: "Est. Monthly", value: formatMoney(data.currentMonthStats.estimatedMonthly, "CAD"), accent: "from-amber-400/20 to-emerald-400/10", icon: <TrendingUp className="h-5 w-5 text-amber-200" /> },
-  ];
 
   return (
     <div className="space-y-6">
@@ -99,6 +175,52 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
       </div>
+
+        {summary ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            <ValueBadge
+              title="Saved"
+              amount={formatMoney(summary.saved.totalCents, summary.saved.currency)}
+              detail={summary.plan.featureAccess.saved
+                ? `${formatMoney(summary.saved.confirmedCents, summary.saved.currency)} confirmed · ${formatMoney(summary.saved.estimatedCents, summary.saved.currency)} est.`
+                : "Pro unlocks saved + drilldowns"}
+              tone="emerald"
+              locked={!summary.plan.featureAccess.saved}
+            />
+            <ValueBadge
+              title={`At Risk (${summary.atRisk.horizonDays}d)`}
+              amount={formatMoney(summary.atRisk.totalCents, summary.atRisk.currency)}
+              detail={`${summary.atRisk.renewals.length} renewals · ${summary.atRisk.returnDeadlines.length} returns · ${summary.atRisk.overdueRefunds.length} refunds`}
+              tone="amber"
+              locked={false}
+            >
+              <div className="mt-3 space-y-2 text-xs text-slate-200">
+                {topRisk.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-2 text-slate-300">No risks this week.</p>
+                ) : (
+                  topRisk.map(item => (
+                    <div key={`${item.kind}-${item.id}`} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                      <span className="font-semibold text-white">{item.label}</span>
+                      <div className="text-right">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-300">{item.kind.replace("_", " ")}</p>
+                        <p className="text-[11px] text-slate-400">{new Date(item.dueDate).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ValueBadge>
+            <ValueBadge
+              title="Recovered"
+              amount={formatMoney(summary.recovered.totalCents, summary.recovered.currency)}
+              detail={summary.plan.featureAccess.recovered
+                ? `${summary.recovered.events.length} refunds tracked`
+                : "Upgrade to see recovered"}
+              tone="cyan"
+              locked={!summary.plan.featureAccess.recovered}
+            />
+          </div>
+        ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card, idx) => (
@@ -176,6 +298,47 @@ export default function AnalyticsDashboard() {
           </div>
         </GlassCard>
       ) : null}
+    </div>
+  );
+}
+
+function ValueBadge({
+  title,
+  amount,
+  detail,
+  tone,
+  locked,
+  children,
+}: {
+  title: string;
+  amount: string;
+  detail: string;
+  tone: "emerald" | "amber" | "cyan";
+  locked?: boolean;
+  children?: ReactNode;
+}) {
+  const toneStyles: Record<"emerald" | "amber" | "cyan", { bg: string; chip: string }> = {
+    emerald: { bg: "from-emerald-400/20 via-emerald-500/15 to-slate-950", chip: "bg-emerald-500/20 text-emerald-50" },
+    amber: { bg: "from-amber-400/25 via-rose-400/15 to-slate-950", chip: "bg-amber-500/20 text-amber-50" },
+    cyan: { bg: "from-cyan-400/20 via-blue-400/15 to-slate-950", chip: "bg-cyan-500/20 text-cyan-50" },
+  };
+
+  return (
+    <div className={`relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${toneStyles[tone].bg} p-4 shadow-xl shadow-black/40`}>
+      {locked ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">Upgrade to unlock</span>
+        </div>
+      ) : null}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.24em] text-slate-200">{title}</p>
+          <p className="mt-1 text-3xl font-bold text-white">{amount}</p>
+          <p className="text-sm text-slate-200/80">{detail}</p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${toneStyles[tone].chip}`}>{locked ? "Pro" : "Live"}</span>
+      </div>
+      {children}
     </div>
   );
 }

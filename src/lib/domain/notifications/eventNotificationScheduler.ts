@@ -132,7 +132,7 @@ export async function scheduleReturnDeadlineSoon(args: {
   returnBy: Date;
   amountCents?: number | null;
   currency?: string | null;
-  status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+  status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "DELIVERED" | "REFUNDED";
 }) {
   // only schedule if still actionable
   if (!(args.status === "NOT_STARTED" || args.status === "PACKED")) {
@@ -306,13 +306,19 @@ export async function scheduleRefundOverdueOnce(args: {
   userId: string;
   returnId: string;
   store: string;
-  refundExpectedBy: Date | null;
+  refundExpectedAt: Date | null;
   refundedDate: Date | null;
 }) {
-  if (!args.refundExpectedBy || args.refundedDate) return;
+  if (!args.refundExpectedAt || args.refundedDate) return;
+
+  const pref = await prisma.notificationPreference.findUnique({
+    where: { userId: args.userId },
+    select: { notifyOnRefundOverdue: true },
+  });
+  if (pref && pref.notifyOnRefundOverdue === false) return;
 
   const today = startOfDayUTC(new Date());
-  const expected = startOfDayUTC(args.refundExpectedBy);
+  const expected = startOfDayUTC(args.refundExpectedAt);
 
   if (expected >= today) return; // not overdue yet
 
@@ -331,5 +337,41 @@ export async function scheduleRefundOverdueOnce(args: {
     sourceKind: "return",
     sourceId: args.returnId,
     eventKey,
+  });
+}
+
+export async function scheduleReturnDelivered(args: {
+  userId: string;
+  returnId: string;
+  store: string;
+  deliveredAt: Date;
+}) {
+  const pref = await prisma.notificationPreference.findUnique({
+    where: { userId: args.userId },
+    select: { notifyOnDelivery: true },
+  });
+  if (pref && pref.notifyOnDelivery === false) return;
+
+  const deliveredDay = startOfDayUTC(args.deliveredAt);
+  const deliveredISO = isoDateOnly(deliveredDay);
+  const eventKey = `return_delivered:${args.returnId}:${deliveredISO}`;
+
+  await upsertNotification({
+    userId: args.userId,
+    type: "RETURN_DELIVERED",
+    title: `${args.store} delivered`,
+    body: `Delivered on ${deliveredISO}`,
+    eventDate: deliveredDay,
+    scheduledFor: deliveredDay,
+    sourceKind: "return",
+    sourceId: args.returnId,
+    eventKey,
+  });
+
+  await dismissStaleBySource({
+    userId: args.userId,
+    sourceKind: "return",
+    sourceId: args.returnId,
+    keepEventKeys: [eventKey],
   });
 }

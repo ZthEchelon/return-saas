@@ -28,7 +28,14 @@ enum ReturnStatus {
   NOT_STARTED
   PACKED
   DROPPED_OFF
+  DELIVERED
   REFUNDED
+}
+
+enum ValueEventType {
+  AVOIDED_RENEWAL
+  REFUND_RECEIVED
+  FEE_AVOIDED
 }
 
 model Subscription {
@@ -61,16 +68,23 @@ model ReturnItem {
   status           ReturnStatus @default(NOT_STARTED)
 
   trackingNumber    String?
+  carrier           String?
   dropoffDate       DateTime? // when returned/shipped
-  refundExpectedBy  DateTime? // NEW: when you expect refund by
+  deliveredAt       DateTime?
+  refundExpectedAt  DateTime? // when you expect refund by
   refundedDate      DateTime? // when refund actually received
   refundAmountCents Int? // OPTIONAL (nice to have)
+  refundSlaDays     Int       @default(14)
+  refundType        String?   @default("ORIGINAL")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  shipmentEvents ShipmentEvent[] @relation("ReturnItemShipmentEvents")
+  refundCase      RefundCase?     @relation("ReturnItemRefundCase")
+
   @@index([userId, returnBy])
-  @@index([userId, refundExpectedBy]) // optional but helpful
+  @@index([userId, refundExpectedAt]) // optional but helpful
 }
 
 //schema for adding bill paid status
@@ -130,6 +144,8 @@ model BillingAccount {
   id     String @id @default(cuid())
   userId String @unique
   plan   Plan   @default(FREE)
+
+  preferredCurrency String? @default("CAD")
 
   stripeCustomerId     String?   @unique
   stripeSubscriptionId String?   @unique
@@ -215,6 +231,11 @@ model EmailConnection {
   refreshToken String?
   expiry       DateTime?
   scope        String?
+  imapUser     String?
+  imapPassword String?
+  imapHost     String?
+  imapPort     Int?
+  imapSecure   Boolean?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -352,6 +373,7 @@ enum NotificationType {
   BILL_DUE_SOON
   REFUND_CHECK_DUE
   REFUND_OVERDUE
+  RETURN_DELIVERED
 }
 
 enum NotificationChannel {
@@ -443,6 +465,8 @@ model NotificationPreference {
   returnLeadDays     Int     @default(2)
   billLeadDays       Int     @default(2)
   primaryEmail       String?
+  notifyOnDelivery   Boolean @default(true)
+  notifyOnRefundOverdue Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -467,4 +491,67 @@ model DigestRun {
 
   @@unique([userId, digestDate])
   @@index([userId, digestDate])
+}
+
+model ShipmentEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  returnId   String
+  statusCode String
+  statusText String
+  occurredAt DateTime
+  location   String?
+  raw        Json?
+  createdAt  DateTime @default(now())
+
+  returnItem ReturnItem @relation("ReturnItemShipmentEvents", fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId, occurredAt])
+  @@index([userId, occurredAt])
+}
+
+model RefundCase {
+  id                String   @id @default(cuid())
+  userId            String
+  returnId          String   @unique
+  expectedAt        DateTime?
+  receivedAt        DateTime?
+  overdueNotifiedAt DateTime?
+  refundType        String?  @default("ORIGINAL")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  returnItem ReturnItem @relation("ReturnItemRefundCase", fields: [returnId], references: [id], onDelete: Cascade)
+}
+
+// FX rates for currency conversion (1 base = rate quote)
+model FxRate {
+  id            String   @id @default(cuid())
+  baseCurrency  String
+  quoteCurrency String
+  rate          Decimal  @db.Decimal(16, 8)
+  asOfDate      DateTime // usually date-only
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quoteCurrency, baseCurrency, asOfDate])
+  @@unique([baseCurrency, quoteCurrency, asOfDate])
+}
+
+model ValueEvent {
+  id         String         @id @default(cuid())
+  userId     String
+  type       ValueEventType
+  amountCents Int
+  currency   String         @default("CAD")
+  occurredAt DateTime
+  sourceId   String?
+  isEstimated Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, occurredAt])
+  @@index([userId, type])
 }

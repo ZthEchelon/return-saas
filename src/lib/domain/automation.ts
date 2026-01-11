@@ -21,6 +21,12 @@ export type Suggestion = {
     purchaseDate?: string; // YYYY-MM-DD
     returnBy?: string; // YYYY-MM-DD
     returnWindowDays?: number;
+    trackingNumber?: string;
+    carrier?: string;
+    refundSlaDays?: number;
+    refundExpectedAt?: string;
+    refundType?: "ORIGINAL" | "STORE_CREDIT" | "PARTIAL";
+    deliveredAt?: string;
 
     // Subscription
     renewalDate?: string; // YYYY-MM-DD

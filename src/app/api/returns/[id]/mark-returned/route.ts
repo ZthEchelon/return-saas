@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { refreshShipmentTimeline, syncRefundExpectation } from "@/lib/domain/shipping/tracking";
 
 export const runtime = "nodejs";
 
@@ -30,14 +31,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const now = new Date();
 
   const dropoff = item.dropoffDate ?? now;
-  const expected = item.refundExpectedBy ?? addDaysUTC(dropoff, 7); // default: 7 days after return
+  const sla = item.refundSlaDays ?? 14;
+  const expected = item.refundExpectedAt ?? addDaysUTC(dropoff, sla); // default: refund SLA
 
   const updated = await prisma.returnItem.update({
     where: { id },
     data: {
       status: "DROPPED_OFF",
       dropoffDate: dropoff,
-      refundExpectedBy: expected,
+      refundExpectedAt: expected,
       trackingNumber,
     },
   });
@@ -61,14 +63,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     refundedDate: updated.refundedDate,
   });
 
-  if (updated.refundExpectedBy) {
+  if (updated.refundExpectedAt) {
     await scheduleRefundOverdueOnce({
       userId,
       returnId: updated.id,
       store: updated.store,
-      refundExpectedBy: updated.refundExpectedBy ?? null,
+      refundExpectedAt: updated.refundExpectedAt ?? null,
       refundedDate: updated.refundedDate,
     });
+  }
+
+  if (updated.refundExpectedAt !== null) {
+    await syncRefundExpectation({
+      userId,
+      returnId: updated.id,
+      expectedAt: updated.refundExpectedAt,
+      refundType: updated.refundType ?? null,
+    });
+  }
+
+  if (updated.trackingNumber) {
+    await refreshShipmentTimeline({ userId, returnId: updated.id });
   }
 
   return NextResponse.json({ ok: true, returnItem: updated });

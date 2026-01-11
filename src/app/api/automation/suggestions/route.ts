@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleBillDueSoon, scheduleReturnDeadlineSoon, scheduleSubscriptionRenewalSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { scheduleBillDueSoon, scheduleReturnDeadlineSoon, scheduleReturnDelivered, scheduleSubscriptionRenewalSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { refreshShipmentTimeline, syncRefundExpectation } from "@/lib/domain/shipping/tracking";
 
 export const runtime = "nodejs";
 
@@ -81,6 +82,18 @@ export async function POST(req: Request) {
     const windowDays = Number.isFinite(Number(mergedDraft.returnWindowDays))
       ? Math.max(1, Number(mergedDraft.returnWindowDays))
       : 30;
+    const carrier =
+      typeof mergedDraft.carrier === "string" && mergedDraft.carrier.trim().length > 0 ? mergedDraft.carrier.trim() : null;
+    const trackingNumber =
+      typeof mergedDraft.trackingNumber === "string" && mergedDraft.trackingNumber.trim().length > 0
+        ? mergedDraft.trackingNumber.trim()
+        : null;
+    const refundSlaDays = Number.isFinite(Number(mergedDraft.refundSlaDays))
+      ? Math.max(1, Number(mergedDraft.refundSlaDays))
+      : 14;
+    const refundTypeRaw = typeof mergedDraft.refundType === "string" ? mergedDraft.refundType.trim().toUpperCase() : null;
+    const allowedRefundTypes = new Set(["ORIGINAL", "STORE_CREDIT", "PARTIAL"]);
+    const refundType = refundTypeRaw && allowedRefundTypes.has(refundTypeRaw) ? refundTypeRaw : refundTypeRaw ?? null;
 
     if (!purchaseDateStr) {
       return NextResponse.json({ error: "Return requires draft.purchaseDate (YYYY-MM-DD)" }, { status: 400 });
@@ -93,6 +106,24 @@ export async function POST(req: Request) {
     if (returnByStr) returnBy = isoDateOnlyToUTC(returnByStr);
     else returnBy = addDaysUTC(purchaseDate, windowDays);
 
+    let deliveredAt: Date | null = null;
+    const deliveredRaw = typeof mergedDraft.deliveredAt === "string" ? mergedDraft.deliveredAt : null;
+    if (deliveredRaw) {
+      const delivered = new Date(deliveredRaw);
+      if (Number.isNaN(delivered.getTime())) return NextResponse.json({ error: "deliveredAt invalid" }, { status: 400 });
+      deliveredAt = delivered;
+    }
+
+    let refundExpectedAt: Date | null = null;
+    const refundExpectedRaw = typeof mergedDraft.refundExpectedAt === "string" ? mergedDraft.refundExpectedAt : null;
+    if (refundExpectedRaw) {
+      const exp = new Date(refundExpectedRaw);
+      if (Number.isNaN(exp.getTime())) return NextResponse.json({ error: "refundExpectedAt invalid" }, { status: 400 });
+      refundExpectedAt = exp;
+    } else if (deliveredAt) {
+      refundExpectedAt = addDaysUTC(deliveredAt, refundSlaDays);
+    }
+
     const createdReturn = await prisma.returnItem.create({
       data: {
         userId,
@@ -103,13 +134,15 @@ export async function POST(req: Request) {
         purchaseDate,
         returnWindowDays: windowDays,
         returnBy,
-        status: "NOT_STARTED",
+        status: deliveredAt ? "DELIVERED" : trackingNumber ? "PACKED" : "NOT_STARTED",
         dropoffDate: null,
         refundedDate: null,
-        trackingNumber: typeof mergedDraft.trackingNumber === "string" && mergedDraft.trackingNumber.trim().length > 0
-          ? mergedDraft.trackingNumber.trim()
-          : null,
-        refundExpectedBy: null,
+        trackingNumber,
+        carrier,
+        deliveredAt,
+        refundExpectedAt,
+        refundSlaDays,
+        refundType,
         refundAmountCents: null,
       },
     });
@@ -124,6 +157,28 @@ export async function POST(req: Request) {
       currency: createdReturn.currency,
       status: createdReturn.status,
     });
+
+    if (trackingNumber) {
+      await refreshShipmentTimeline({ userId, returnId: createdReturn.id });
+    }
+
+    if (deliveredAt) {
+      await scheduleReturnDelivered({
+        userId,
+        returnId: createdReturn.id,
+        store: createdReturn.store,
+        deliveredAt,
+      });
+    }
+
+    if (refundExpectedAt !== null) {
+      await syncRefundExpectation({
+        userId,
+        returnId: createdReturn.id,
+        expectedAt: refundExpectedAt,
+        refundType: refundType ?? null,
+      });
+    }
   }
 
   if (type === "SUBSCRIPTION") {

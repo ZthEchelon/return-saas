@@ -59,10 +59,10 @@ export async function POST(req: Request) {
       where: {
         OR: [
           { dropoffDate: { not: null }, refundedDate: null },
-          { refundExpectedBy: { not: null }, refundedDate: null },
+          { refundExpectedAt: { not: null }, refundedDate: null },
         ],
       },
-      select: { id: true, userId: true, store: true, dropoffDate: true, refundedDate: true, refundExpectedBy: true },
+      select: { id: true, userId: true, store: true, dropoffDate: true, refundedDate: true, refundExpectedAt: true },
     }),
   ]);
 
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
       userId: r.userId,
       returnId: r.id,
       store: r.store,
-      refundExpectedBy: r.refundExpectedBy ?? null,
+      refundExpectedAt: r.refundExpectedAt ?? null,
       refundedDate: r.refundedDate,
     });
   }

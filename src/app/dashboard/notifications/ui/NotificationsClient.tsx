@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
-type NotificationType = "SUBSCRIPTION_RENEWAL_SOON" | "RETURN_DEADLINE_SOON" | "BILL_DUE_SOON" | "REFUND_CHECK_DUE" | "REFUND_OVERDUE";
+type NotificationType = "SUBSCRIPTION_RENEWAL_SOON" | "RETURN_DEADLINE_SOON" | "BILL_DUE_SOON" | "REFUND_CHECK_DUE" | "REFUND_OVERDUE" | "RETURN_DELIVERED";
 
 type Notification = {
   id: string;
@@ -42,6 +42,7 @@ function typeLabel(t: NotificationType) {
     case "BILL_DUE_SOON": return "Bill";
     case "REFUND_CHECK_DUE": return "Refund check";
     case "REFUND_OVERDUE": return "Refund overdue";
+    case "RETURN_DELIVERED": return "Delivered";
     default: return t;
   }
 }
@@ -53,6 +54,7 @@ function typePill(t: NotificationType) {
     BILL_DUE_SOON: "bg-indigo-500/20 text-indigo-100",
     REFUND_CHECK_DUE: "bg-amber-500/20 text-amber-100",
     REFUND_OVERDUE: "bg-rose-500/20 text-rose-100",
+    RETURN_DELIVERED: "bg-emerald-500/20 text-emerald-100",
   };
   return map[t] ?? "bg-white/10 text-slate-100";
 }

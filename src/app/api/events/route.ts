@@ -8,6 +8,7 @@ type EventType =
   | "RETURN_DEADLINE"
   | "REFUND_CHECK"
   | "REFUND_EXPECTED"
+  | "DELIVERED"
   | "REFUNDED"
   | "CANCELLED_SUBSCRIPTION"
   | "BILL_DUE";
@@ -143,10 +144,13 @@ export async function GET(req: Request) {
       returnBy: true,
       status: true,
       dropoffDate: true,
-      refundExpectedBy: true,
+      refundExpectedAt: true,
+      deliveredAt: true,
       refundedDate: true,
       refundAmountCents: true,
       trackingNumber: true,
+      refundSlaDays: true,
+      carrier: true,
     },
       orderBy: { returnBy: "asc" },
     }),
@@ -193,71 +197,57 @@ export async function GET(req: Request) {
     });
   }
 
-  // Return deadlines + refund checks + refunded
+    // Return deadlines + refund checks + refunded
   for (const r of returnItems) {
-    // Return deadline event (if within range)
+    const expectedRefundAt =
+      r.refundExpectedAt ??
+      (r.deliveredAt
+        ? addDaysUTC(r.deliveredAt, r.refundSlaDays ?? 14)
+        : r.dropoffDate
+        ? addDaysUTC(r.dropoffDate, r.refundSlaDays ?? 14)
+        : null);
+
     const deadlineDate = toISODateOnlyUTC(r.returnBy);
-    if (r.returnBy >= start && r.returnBy < end && r.status !== "REFUNDED") {
+    if (r.returnBy >= start && r.returnBy < end && r.status !== "REFUNDED" && r.status !== "DELIVERED") {
       events.push({
         id: `ret_${r.id}_${deadlineDate}`,
         type: "RETURN_DEADLINE",
-      date: deadlineDate,
-      title: `${r.store}${r.itemNote ? ` — ${r.itemNote}` : ""}`,
-      amountCents: r.amountCents ?? undefined,
-      currency: r.currency,
-      source: { kind: "return", sourceId: r.id },
-      purchaseDate: toISODateOnlyUTC(r.purchaseDate),
-      returnBy: deadlineDate,
-      trackingNumber: r.trackingNumber ?? null,
-    });
-  }
+        date: deadlineDate,
+        title: `${r.store}${r.itemNote ? ` — ${r.itemNote}` : ""}`,
+        amountCents: r.amountCents ?? undefined,
+        currency: r.currency,
+        source: { kind: "return", sourceId: r.id },
+        purchaseDate: toISODateOnlyUTC(r.purchaseDate),
+        returnBy: deadlineDate,
+        trackingNumber: r.trackingNumber ?? null,
+      });
+    }
 
-    // Refund check events (only if dropped off and not refunded)
     if (r.dropoffDate && !r.refundedDate && r.status !== "REFUNDED") {
       const check7 = addDaysUTC(r.dropoffDate, 7);
-      const check14 = addDaysUTC(r.dropoffDate, 14);
+      const checkSla = expectedRefundAt ?? addDaysUTC(r.dropoffDate, 14);
 
       for (const [checkDate, label] of [
         [check7, "Refund check (7d)"],
-        [check14, "Refund check (14d)"],
+        [checkSla, "Refund expected"],
       ] as const) {
         if (checkDate >= start && checkDate < end) {
           events.push({
             id: `ref_${r.id}_${label}_${toISODateOnlyUTC(checkDate)}`,
-            type: "REFUND_CHECK",
-        date: toISODateOnlyUTC(checkDate),
-        title: `${label}: ${r.store}`,
-        amountCents: r.amountCents ?? undefined,
-        currency: r.currency,
-        source: { kind: "return", sourceId: r.id },
-        purchaseDate: toISODateOnlyUTC(r.purchaseDate),
-        returnBy: toISODateOnlyUTC(r.returnBy),
-        trackingNumber: r.trackingNumber ?? null,
-      });
-    }
-  }
+            type: label === "Refund expected" ? "REFUND_EXPECTED" : "REFUND_CHECK",
+            date: toISODateOnlyUTC(checkDate),
+            title: `${label}: ${r.store}`,
+            amountCents: r.amountCents ?? undefined,
+            currency: r.currency,
+            source: { kind: "return", sourceId: r.id },
+            purchaseDate: toISODateOnlyUTC(r.purchaseDate),
+            returnBy: toISODateOnlyUTC(r.returnBy),
+            trackingNumber: r.trackingNumber ?? null,
+          });
+        }
+      }
     }
 
-    // Refund expected: when returned/dropped and awaiting refund
-    if (r.dropoffDate && !r.refundedDate && r.status === "DROPPED_OFF") {
-      const expected = addDaysUTC(r.dropoffDate, 14);
-      if (expected >= start && expected < end) {
-        events.push({
-          id: `refexp_${r.id}_${toISODateOnlyUTC(expected)}`,
-          type: "REFUND_EXPECTED",
-        date: toISODateOnlyUTC(expected),
-        title: `${r.store} — Refund expected`,
-        amountCents: r.amountCents ?? undefined,
-        currency: r.currency,
-        source: { kind: "return", sourceId: r.id },
-        purchaseDate: toISODateOnlyUTC(r.purchaseDate),
-        returnBy: toISODateOnlyUTC(r.returnBy),
-        trackingNumber: r.trackingNumber ?? null,
-      });
-    }
-  }
-
-    // Refunded event (if refundedDate within range)
     if (r.refundedDate && r.refundedDate >= start && r.refundedDate < end) {
       events.push({
         id: `refunded_${r.id}_${toISODateOnlyUTC(r.refundedDate)}`,
@@ -272,9 +262,23 @@ export async function GET(req: Request) {
         trackingNumber: r.trackingNumber ?? null,
       });
     }
-  }
 
-  // Bill events
+    if (r.deliveredAt && r.deliveredAt >= start && r.deliveredAt < end) {
+      events.push({
+        id: `delivered_${r.id}_${toISODateOnlyUTC(r.deliveredAt)}`,
+        type: "DELIVERED",
+        date: toISODateOnlyUTC(r.deliveredAt),
+        title: `${r.store} — Delivered`,
+        amountCents: r.amountCents ?? undefined,
+        currency: r.currency,
+        source: { kind: "return", sourceId: r.id },
+        purchaseDate: toISODateOnlyUTC(r.purchaseDate),
+        returnBy: toISODateOnlyUTC(r.returnBy),
+        trackingNumber: r.trackingNumber ?? null,
+      });
+    }
+  }
+// Bill events
   const paymentMap = new Map<string, { paidAt: Date | null; amountCents?: number | null; currency?: string }>();
   for (const p of payments) {
     paymentMap.set(`${p.billId}_${p.monthKey}`, { paidAt: p.paidAt, amountCents: p.amountCents, currency: p.currency });

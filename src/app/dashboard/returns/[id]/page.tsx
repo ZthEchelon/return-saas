@@ -29,6 +29,7 @@ export default async function ReturnDetailPage({
     NOT_STARTED: "bg-slate-500/25 text-slate-100",
     PACKED: "bg-amber-500/25 text-amber-50",
     DROPPED_OFF: "bg-blue-500/25 text-blue-50",
+    DELIVERED: "bg-cyan-500/25 text-cyan-50",
     REFUNDED: "bg-emerald-500/25 text-emerald-50",
   };
 
@@ -36,11 +37,12 @@ export default async function ReturnDetailPage({
     NOT_STARTED: "📋",
     PACKED: "📦",
     DROPPED_OFF: "🚚",
+    DELIVERED: "📬",
     REFUNDED: "✅",
   };
 
   const isRefunded = ret.status === "REFUNDED";
-  const isExpectedRefund = ret.refundExpectedBy ? new Date() < ret.refundExpectedBy : false;
+  const isExpectedRefund = ret.refundExpectedAt ? new Date() < ret.refundExpectedAt : false;
   // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
 
@@ -60,7 +62,7 @@ export default async function ReturnDetailPage({
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs font-semibold text-slate-400">Purchase Amount</p>
           <p className="mt-2 text-2xl font-bold text-white">
@@ -79,13 +81,24 @@ export default async function ReturnDetailPage({
           <p className="text-xs font-semibold text-slate-400">Return Window</p>
           <p className="mt-2 text-2xl font-bold text-white">{ret.returnWindowDays} days</p>
         </div>
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="text-xs font-semibold text-slate-400">Tracking</p>
+          <p className="mt-2 text-sm font-semibold text-white">
+            {ret.trackingNumber ?? "—"} {ret.carrier ? `· ${ret.carrier}` : ""}
+          </p>
+          {ret.deliveredAt ? (
+            <p className="text-xs text-emerald-100">Delivered {ret.deliveredAt.toLocaleDateString("en-CA")}</p>
+          ) : (
+            <p className="text-xs text-slate-400">{ret.dropoffDate ? "In transit" : "Waiting for label"}</p>
+          )}
+        </div>
         <div className={`rounded-xl border p-4 ${isExpectedRefund ? "border-amber-300/30 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
           <p className={`text-xs font-semibold ${isExpectedRefund ? "text-amber-100" : "text-slate-400"}`}>
             Time to Refund
           </p>
-          {ret.refundExpectedBy && (
+          {ret.refundExpectedAt && (
             <p className={`mt-2 text-2xl font-bold ${isExpectedRefund ? "text-white" : "text-slate-100"}`}>
-              {Math.max(0, Math.ceil((ret.refundExpectedBy.getTime() - nowMs) / (1000 * 60 * 60 * 24)))} days
+              {Math.max(0, Math.ceil((ret.refundExpectedAt.getTime() - nowMs) / (1000 * 60 * 60 * 24)))} days
             </p>
           )}
         </div>
@@ -113,10 +126,22 @@ export default async function ReturnDetailPage({
               <p className="mt-1 text-slate-100">{ret.dropoffDate.toLocaleDateString("en-CA")}</p>
             </div>
           )}
-          {ret.refundExpectedBy && (
+          {ret.deliveredAt && (
+            <div>
+              <p className="text-xs font-semibold text-slate-400">Delivered</p>
+              <p className="mt-1 text-slate-100">{ret.deliveredAt.toLocaleDateString("en-CA")} · SLA {ret.refundSlaDays}d</p>
+            </div>
+          )}
+          {ret.refundExpectedAt && (
             <div>
               <p className="text-xs font-semibold text-slate-400">Expected Refund By</p>
-              <p className="mt-1 text-slate-100">{ret.refundExpectedBy.toLocaleDateString("en-CA")}</p>
+              <p className="mt-1 text-slate-100">{ret.refundExpectedAt.toLocaleDateString("en-CA")}</p>
+            </div>
+          )}
+          {ret.trackingNumber && (
+            <div>
+              <p className="text-xs font-semibold text-slate-400">Tracking</p>
+              <p className="mt-1 text-slate-100">{ret.trackingNumber} {ret.carrier ? `(${ret.carrier})` : ""}</p>
             </div>
           )}
           {ret.refundedDate && (

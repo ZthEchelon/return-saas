@@ -39,6 +39,8 @@ export async function POST(req: Request) {
   const returnLeadDays = clamp(Number(body.returnLeadDays ?? 2), 0, 31);
   const billLeadDays = clamp(Number(body.billLeadDays ?? 2), 0, 31);
   const primaryEmail = typeof body.primaryEmail === "string" && body.primaryEmail.length > 0 ? body.primaryEmail : null;
+  const notifyOnDelivery = Boolean(body.notifyOnDelivery ?? true);
+  const notifyOnRefundOverdue = Boolean(body.notifyOnRefundOverdue ?? true);
 
   const updated = await prisma.notificationPreference.upsert({
     where: { userId },
@@ -51,6 +53,8 @@ export async function POST(req: Request) {
       returnLeadDays,
       billLeadDays,
       primaryEmail,
+      notifyOnDelivery,
+      notifyOnRefundOverdue,
     },
     update: {
       emailDigestEnabled: digest,
@@ -60,6 +64,8 @@ export async function POST(req: Request) {
       returnLeadDays,
       billLeadDays,
       primaryEmail,
+      notifyOnDelivery,
+      notifyOnRefundOverdue,
     },
   });
 

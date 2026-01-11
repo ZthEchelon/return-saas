@@ -93,6 +93,8 @@ function humanLabel(ev: CalendarEvent) {
       return "Refund check";
     case "REFUND_EXPECTED":
       return "Refund expected";
+    case "DELIVERED":
+      return "Delivered";
     case "REFUNDED":
       return "Refunded";
     default:
@@ -121,6 +123,8 @@ function typeTone(ev: CalendarEvent) {
     case "REFUND_CHECK":
     case "REFUND_EXPECTED":
       return "border-amber-300/40 bg-amber-500/10";
+    case "DELIVERED":
+      return "border-emerald-300/40 bg-emerald-500/10";
     case "REFUNDED":
       return "border-emerald-300/40 bg-emerald-500/10";
     default:
@@ -143,6 +147,8 @@ function typePill(ev: CalendarEvent) {
     case "REFUND_CHECK":
     case "REFUND_EXPECTED":
       return "bg-amber-500/20 text-amber-100";
+    case "DELIVERED":
+      return "bg-emerald-500/20 text-emerald-100";
     case "REFUNDED":
       return "bg-emerald-400/25 text-emerald-50";
     default:
@@ -212,7 +218,7 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
       let typeMatch = false;
       if (filterTypes.has("BILL") && e.type === "BILL_DUE") typeMatch = true;
       if (filterTypes.has("SUBSCRIPTION") && (e.type === "RENEWAL" || e.type === "CANCELLED_SUBSCRIPTION")) typeMatch = true;
-      if (filterTypes.has("RETURN") && (e.type === "RETURN_DEADLINE" || e.type === "REFUND_CHECK" || e.type === "REFUND_EXPECTED" || e.type === "REFUNDED")) typeMatch = true;
+      if (filterTypes.has("RETURN") && (e.type === "RETURN_DEADLINE" || e.type === "REFUND_CHECK" || e.type === "REFUND_EXPECTED" || e.type === "DELIVERED" || e.type === "REFUNDED")) typeMatch = true;
       if (!typeMatch) return false;
 
       if (autopayOnly && e.type === "BILL_DUE" && !e.autopay) return false;

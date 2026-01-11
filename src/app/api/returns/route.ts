@@ -3,7 +3,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { scheduleReturnDeadlineSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { scheduleReturnDeadlineSoon, scheduleReturnDelivered } from "@/lib/notifications/eventNotificationScheduler";
+import { refreshShipmentTimeline, syncRefundExpectation } from "@/lib/domain/shipping/tracking";
+
+function addDaysUTC(base: Date, days: number) {
+  const d = new Date(base);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -20,6 +27,12 @@ export async function POST(req: Request) {
     purchaseDate,
     returnWindowDays = 30,
     returnBy,
+    trackingNumber,
+    carrier,
+    deliveredAt,
+    refundSlaDays = 14,
+    refundExpectedAt,
+    refundType,
   } = body;
 
   if (!store || typeof store !== "string") return NextResponse.json({ error: "store required" }, { status: 400 });
@@ -42,6 +55,38 @@ export async function POST(req: Request) {
     rb.setUTCDate(rb.getUTCDate() + windowDays);
   }
 
+  const tracking =
+    typeof trackingNumber === "string" && trackingNumber.trim().length > 0 ? trackingNumber.trim() : null;
+  const carrierVal = typeof carrier === "string" && carrier.trim().length > 0 ? carrier.trim() : null;
+  const sla = Number.isFinite(Number(refundSlaDays)) ? Math.max(1, Math.floor(Number(refundSlaDays))) : 14;
+
+  let delivered: Date | null = null;
+  if (typeof deliveredAt === "string" && deliveredAt.length > 0) {
+    const d = new Date(deliveredAt);
+    if (Number.isNaN(d.getTime())) return NextResponse.json({ error: "deliveredAt invalid" }, { status: 400 });
+    delivered = d;
+  }
+
+  let refundExpected: Date | null = null;
+  if (typeof refundExpectedAt === "string" && refundExpectedAt.length > 0) {
+    const exp = new Date(refundExpectedAt);
+    if (Number.isNaN(exp.getTime())) return NextResponse.json({ error: "refundExpectedAt invalid" }, { status: 400 });
+    refundExpected = exp;
+  } else if (delivered) {
+    refundExpected = addDaysUTC(delivered, sla);
+  }
+
+  const normalizedRefundType = (() => {
+    if (typeof refundType !== "string") return "ORIGINAL";
+    const upper = refundType.trim().toUpperCase();
+    const allowed = new Set(["ORIGINAL", "STORE_CREDIT", "PARTIAL"]);
+    return allowed.has(upper) ? upper : "ORIGINAL";
+  })();
+
+  let status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "DELIVERED" | "REFUNDED" = "NOT_STARTED";
+  if (delivered) status = "DELIVERED";
+  else if (tracking) status = "PACKED";
+
   const created = await prisma.returnItem.create({
     data: {
       userId,
@@ -52,7 +97,13 @@ export async function POST(req: Request) {
       purchaseDate: pd,
       returnWindowDays: windowDays,
       returnBy: rb,
-      status: "NOT_STARTED",
+      status,
+      trackingNumber: tracking,
+      carrier: carrierVal,
+      deliveredAt: delivered,
+      refundSlaDays: sla,
+      refundExpectedAt: refundExpected,
+      refundType: normalizedRefundType,
     },
   });
 
@@ -66,6 +117,23 @@ export async function POST(req: Request) {
     currency: created.currency,
     status: created.status,
   });
+
+  if (created.trackingNumber) {
+    await refreshShipmentTimeline({ userId, returnId: created.id });
+  }
+
+  if (created.deliveredAt) {
+    await scheduleReturnDelivered({
+      userId,
+      returnId: created.id,
+      store: created.store,
+      deliveredAt: created.deliveredAt,
+    });
+  }
+
+  if (refundExpected) {
+    await syncRefundExpectation({ userId, returnId: created.id, expectedAt: refundExpected, refundType: normalizedRefundType });
+  }
 
   return NextResponse.json({ returnItem: created });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { scheduleRefundChecks, scheduleRefundOverdueOnce, scheduleReturnDeadlineSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { setRefundReceived } from "@/lib/domain/shipping/tracking";
 
 export const runtime = "nodejs";
 
@@ -46,13 +47,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     refundedDate: updated.refundedDate,
   });
 
-  if (updated.refundExpectedBy) {
+  if (updated.refundExpectedAt) {
     await scheduleRefundOverdueOnce({
       userId,
       returnId: updated.id,
       store: updated.store,
-      refundExpectedBy: updated.refundExpectedBy ?? null,
+      refundExpectedAt: updated.refundExpectedAt ?? null,
       refundedDate: updated.refundedDate,
+    });
+  }
+
+  if (updated.refundedDate) {
+    await setRefundReceived({
+      userId,
+      returnId: updated.id,
+      receivedAt: updated.refundedDate,
+      refundType: updated.refundType ?? null,
     });
   }
 

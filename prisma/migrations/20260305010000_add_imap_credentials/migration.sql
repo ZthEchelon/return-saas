@@ -1,0 +1,7 @@
+-- Add per-user IMAP credential fields
+ALTER TABLE "EmailConnection"
+ADD COLUMN IF NOT EXISTS "imapUser" TEXT,
+ADD COLUMN IF NOT EXISTS "imapPassword" TEXT,
+ADD COLUMN IF NOT EXISTS "imapHost" TEXT,
+ADD COLUMN IF NOT EXISTS "imapPort" INTEGER,
+ADD COLUMN IF NOT EXISTS "imapSecure" BOOLEAN;

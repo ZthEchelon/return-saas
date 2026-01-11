@@ -40,6 +40,11 @@ export async function getReturnTransactionHistory(userId: string, returnId: stri
 
   const transactions: TransactionRecord[] = [];
 
+  const shipmentEvents = await prisma.shipmentEvent.findMany({
+    where: { userId, returnId },
+    orderBy: { occurredAt: "asc" },
+  });
+
   // Purchase transaction
   transactions.push({
     id: `${ret.id}-purchase`,
@@ -75,11 +80,25 @@ export async function getReturnTransactionHistory(userId: string, returnId: stri
     });
   }
 
+  // Shipment events timeline
+  for (const se of shipmentEvents) {
+    transactions.push({
+      id: se.id,
+      date: se.occurredAt,
+      title: se.statusText,
+      amount: 0,
+      currency: ret.currency,
+      type: "pending" as const,
+      notes: se.location,
+      status: se.statusCode,
+    });
+  }
+
   // Expected refund date
-  if (ret.refundExpectedBy) {
+  if (ret.refundExpectedAt) {
     transactions.push({
       id: `${ret.id}-expected`,
-      date: ret.refundExpectedBy,
+      date: ret.refundExpectedAt,
       title: "Refund Expected By",
       amount: ret.refundAmountCents ?? ret.amountCents ?? 0,
       currency: ret.currency,

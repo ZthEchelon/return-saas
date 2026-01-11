@@ -14,11 +14,15 @@ type ReturnRow = {
   returnBy: Date;
   returnWindowDays: number;
   refundAmountCents: number | null;
-  refundExpectedBy: Date | null;
+  refundExpectedAt: Date | null;
   refundedDate: Date | null;
-  status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+  status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "DELIVERED" | "REFUNDED";
   dropoffDate: Date | null;
   trackingNumber: string | null;
+  carrier: string | null;
+  deliveredAt: Date | null;
+  refundSlaDays: number;
+  refundType: string | null;
 };
 
 export default async function ReturnsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -41,11 +45,15 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
       returnBy: true,
       returnWindowDays: true,
       refundAmountCents: true,
-      refundExpectedBy: true,
+      refundExpectedAt: true,
       refundedDate: true,
       status: true,
       dropoffDate: true,
       trackingNumber: true,
+      carrier: true,
+      deliveredAt: true,
+      refundSlaDays: true,
+      refundType: true,
     },
   });
 
@@ -73,9 +81,13 @@ export default async function ReturnsPage({ searchParams }: { searchParams: Prom
     ...r,
     purchaseDate: r.purchaseDate.toISOString(),
     returnBy: r.returnBy.toISOString(),
-    refundExpectedBy: r.refundExpectedBy ? r.refundExpectedBy.toISOString() : null,
+    refundExpectedAt: r.refundExpectedAt ? r.refundExpectedAt.toISOString() : null,
     refundedDate: r.refundedDate ? r.refundedDate.toISOString() : null,
     dropoffDate: r.dropoffDate ? r.dropoffDate.toISOString() : null,
+    deliveredAt: r.deliveredAt ? r.deliveredAt.toISOString() : null,
+    carrier: r.carrier,
+    refundSlaDays: r.refundSlaDays,
+    refundType: r.refundType,
   }));
 
   return (

@@ -5,6 +5,7 @@ export type EventType =
   | "RETURN_DEADLINE"
   | "REFUND_CHECK"
   | "REFUND_EXPECTED"
+  | "DELIVERED"
   | "REFUNDED"
   | "CANCELLED_SUBSCRIPTION"
   | "BILL_DUE";

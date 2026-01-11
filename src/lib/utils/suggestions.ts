@@ -9,6 +9,12 @@ export type SuggestionDraft = {
   purchaseDate?: string;
   returnBy?: string;
   returnWindowDays?: number;
+  trackingNumber?: string;
+  carrier?: string;
+  refundSlaDays?: number;
+  refundExpectedAt?: string;
+  refundType?: "ORIGINAL" | "STORE_CREDIT" | "PARTIAL";
+  deliveredAt?: string;
 
   // Subscription
   renewalDate?: string;

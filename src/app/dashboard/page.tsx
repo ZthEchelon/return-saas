@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/calendarEvents";
+import { computeValueSummary } from "@/lib/valueSummary";
 
 type BillRow = { id: string; amountCents: number | null; autopay: boolean; status: string };
 type SubscriptionRow = { id: string; name: string; amountCents: number; status: string; renewalDate: Date };
@@ -53,6 +54,8 @@ export default async function DashboardPage({
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
+
+  const valueSummary = await computeValueSummary(userId);
 
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
@@ -124,7 +127,7 @@ export default async function DashboardPage({
       .filter(r => r.status !== "REFUNDED")
       .map(r => ({
         title: r.itemNote ? `${r.store} — ${r.itemNote}` : r.store,
-        subtitle: r.status === "DROPPED_OFF" ? "Refund check" : "Return window",
+        subtitle: r.status === "DROPPED_OFF" ? "Refund check" : r.status === "DELIVERED" ? "Refund expected" : "Return window",
         date: r.returnBy,
         amountCents: r.amountCents,
         currency: r.currency ?? "CAD",
@@ -181,8 +184,70 @@ export default async function DashboardPage({
     { label: "30d spend", value: formatMoney(recentSpending, "CAD"), detail: `${recentTransactions.length} receipts`, tone: "indigo" },
   ];
 
+  const riskItems = [
+    ...valueSummary.atRisk.renewals,
+    ...valueSummary.atRisk.returnDeadlines,
+    ...valueSummary.atRisk.overdueRefunds,
+  ].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const topRiskItems = riskItems.slice(0, 3);
+
   return (
     <div className="space-y-8">
+      <section className="grid gap-4 md:grid-cols-3">
+        <ValueSummaryCard
+          title="Saved"
+          amount={formatMoney(valueSummary.saved.totalCents, valueSummary.saved.currency)}
+          detail={valueSummary.plan.featureAccess.saved
+            ? `${formatMoney(valueSummary.saved.confirmedCents, valueSummary.saved.currency)} confirmed · ${formatMoney(valueSummary.saved.estimatedCents, valueSummary.saved.currency)} est.`
+            : "Unlock confirmed + estimated savings"}
+          accent="from-emerald-400/20 to-emerald-500/10"
+          locked={!valueSummary.plan.featureAccess.saved}
+          badge={valueSummary.plan.code === "FREE" ? "Pro" : "Live"}
+        />
+
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-amber-400/15 via-rose-400/10 to-slate-950 p-5 shadow-2xl shadow-black/30">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.26em] text-slate-300">At Risk (7d)</p>
+              <p className="text-3xl font-bold text-white">{formatMoney(valueSummary.atRisk.totalCents, valueSummary.atRisk.currency)}</p>
+              <p className="text-sm text-slate-300">{riskItems.length} items to act on</p>
+            </div>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-amber-50">Stay ahead</span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {topRiskItems.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-3 text-sm text-slate-300">No deadlines this week.</p>
+            ) : (
+              topRiskItems.map(item => (
+                <div key={`${item.kind}-${item.id}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{item.label}</p>
+                    <p className="text-xs text-slate-400">{formatShort(new Date(item.dueDate))}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-amber-100">{item.kind.replace("_", " ")}</span>
+                    {item.amountCents != null ? (
+                      <p className="mt-1 text-xs font-semibold text-white">{formatMoney(item.amountCents, item.currency ?? valueSummary.atRisk.currency)}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <ValueSummaryCard
+          title="Recovered"
+          amount={formatMoney(valueSummary.recovered.totalCents, valueSummary.recovered.currency)}
+          detail={valueSummary.plan.featureAccess.recovered
+            ? `${valueSummary.recovered.events.length} refunds logged`
+            : "Upgrade to track recovered"}
+          accent="from-cyan-400/25 to-emerald-400/10"
+          locked={!valueSummary.plan.featureAccess.recovered}
+          badge={valueSummary.plan.code === "FREE" ? "Pro" : "Live"}
+        />
+      </section>
+
       <section className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/40">
           <div className="pointer-events-none absolute inset-0">
@@ -503,6 +568,41 @@ export default async function DashboardPage({
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ValueSummaryCard({
+  title,
+  amount,
+  detail,
+  accent,
+  locked,
+  badge,
+}: {
+  title: string;
+  amount: string;
+  detail: string;
+  accent: string;
+  locked?: boolean;
+  badge?: string;
+}) {
+  return (
+    <div className={`relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${accent} p-5 shadow-2xl shadow-black/30`}>
+      {locked ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+          <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white">Upgrade for full view</div>
+        </div>
+      ) : null}
+
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.26em] text-slate-200">{title}</p>
+          <p className="mt-1 text-3xl font-bold text-white">{amount}</p>
+          <p className="text-sm text-slate-200/90">{detail}</p>
+        </div>
+        {badge ? <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">{badge}</span> : null}
+      </div>
     </div>
   );
 }

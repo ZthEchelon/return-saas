@@ -60,18 +60,20 @@ export async function GET() {
     type ReturnRow = {
       amountCents: number | null;
       refundAmountCents: number | null;
-      refundExpectedBy: Date | null;
+      refundExpectedAt: Date | null;
       refundedDate: Date | null;
-      status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "REFUNDED";
+      status: "NOT_STARTED" | "PACKED" | "DROPPED_OFF" | "DELIVERED" | "REFUNDED";
+      deliveredAt: Date | null;
     };
     const returns: ReturnRow[] = await prisma.returnItem.findMany({
       where: { userId },
       select: {
         amountCents: true,
         refundAmountCents: true,
-        refundExpectedBy: true,
+        refundExpectedAt: true,
         refundedDate: true,
         status: true,
+        deliveredAt: true,
       },
     });
 
@@ -191,8 +193,8 @@ export async function GET() {
     if (refundedReturns.length > 0) {
       const days = refundedReturns
         .map(r => {
-          if (r.refundExpectedBy && r.refundedDate) {
-            const diff = r.refundedDate.getTime() - r.refundExpectedBy.getTime();
+          if (r.deliveredAt && r.refundedDate) {
+            const diff = r.refundedDate.getTime() - r.deliveredAt.getTime();
             return Math.floor(diff / (1000 * 60 * 60 * 24));
           }
           return 0;
