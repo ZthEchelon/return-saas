@@ -20,11 +20,19 @@ type PrefResponse = { preference: Pref };
 
 type CurrencyResponse = { preferredCurrency: string; plan: string };
 
-const fetcher = (url: string): Promise<PrefResponse> => fetch(url).then((r) => r.json());
+function fetcher<T>(url: string): Promise<T> {
+  return fetch(url).then(r => r.json() as Promise<T>);
+}
 
 export default function NotificationSettings() {
-  const { data, isLoading, error, mutate } = useSWR<PrefResponse>("/api/settings/notifications", fetcher);
-  const { data: currencyData, mutate: mutateCurrency } = useSWR<CurrencyResponse>("/api/settings/currency", fetcher);
+  const { data, isLoading, error, mutate } = useSWR<PrefResponse>(
+    "/api/settings/notifications",
+    (url: string) => fetcher<PrefResponse>(url)
+  );
+  const { data: currencyData, mutate: mutateCurrency } = useSWR<CurrencyResponse>(
+    "/api/settings/currency",
+    (url: string) => fetcher<CurrencyResponse>(url)
+  );
   const pref: Pref | undefined = data?.preference;
   const preferredCurrency = currencyData?.preferredCurrency ?? "CAD";
 

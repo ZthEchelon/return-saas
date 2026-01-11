@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, CheckCircle2, Package, RefreshCw, Truck } from "lucide-react";
 import { formatMoney } from "@/lib/calendarEvents";
@@ -36,7 +36,7 @@ type Stats = {
 
 type StageKey = "to_ship" | "in_transit" | "delivered" | "refund_overdue";
 
-const stageMeta: Record<StageKey, { label: string; accent: string; icon: JSX.Element }> = {
+const stageMeta: Record<StageKey, { label: string; accent: string; icon: ReactNode }> = {
   to_ship: { label: "To ship", accent: "from-cyan-400/25 to-blue-500/10", icon: <Package className="h-4 w-4" /> },
   in_transit: { label: "In transit", accent: "from-blue-400/25 to-indigo-500/10", icon: <Truck className="h-4 w-4" /> },
   delivered: { label: "Delivered", accent: "from-emerald-400/25 to-emerald-500/10", icon: <CheckCircle2 className="h-4 w-4" /> },

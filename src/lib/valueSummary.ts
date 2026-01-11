@@ -64,8 +64,8 @@ function addDays(base: Date, days: number) {
   return d;
 }
 
-function sumCents(values: Array<number | null | undefined>) {
-  return values.reduce((sum, v) => sum + (typeof v === "number" ? v : 0), 0);
+function sumCents(values: Array<number | null | undefined>): number {
+  return values.reduce((sum: number, v) => sum + (typeof v === "number" ? v : 0), 0);
 }
 
 type RateMap = Record<string, number>;
