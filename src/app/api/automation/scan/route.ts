@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/gmailPurchaseParser";
@@ -79,7 +79,7 @@ function toISODateOnly(d: Date) {
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

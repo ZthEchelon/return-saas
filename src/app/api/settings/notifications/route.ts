@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { scheduleNextDigestJob, cancelPendingDigestJobs } from "@/lib/notifications/digestJobScheduler";
@@ -25,7 +25,7 @@ export async function GET() {
   return NextResponse.json({ preference: pref });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 

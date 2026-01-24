@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { refreshShipmentTimeline } from "@/lib/domain/shipping/tracking";
 import { scheduleRefundOverdueOnce } from "@/lib/notifications/eventNotificationScheduler";
@@ -12,7 +12,7 @@ function mustBeCron(req: Request) {
   if (got !== secret) throw new Error("Forbidden");
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     mustBeCron(req);
   } catch {

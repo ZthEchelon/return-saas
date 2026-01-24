@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { refreshShipmentTimeline, syncRefundExpectation } from "@/lib/domain/shipping/tracking";
@@ -11,7 +11,7 @@ function addDaysUTC(base: Date, days: number) {
   return d;
 }
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 

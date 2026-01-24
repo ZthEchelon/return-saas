@@ -1,14 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: subscriptionId } = await params;
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
-
-  const subscriptionId = params.id;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 

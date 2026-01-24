@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -13,7 +13,7 @@ type SnoozePayload = {
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 // Persist snoozed events per user so they stay hidden across sessions.
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 

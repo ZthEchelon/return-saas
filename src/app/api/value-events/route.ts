@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { ValueEventType } from "@prisma/client";
@@ -9,7 +9,7 @@ function isValidType(value: unknown): value is ValueEventType {
   return typeof value === "string" && (Object.values(ValueEventType) as string[]).includes(value);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 

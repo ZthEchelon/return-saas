@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { buildDigestForUser } from "@/lib/notifications/digestBuilder";
@@ -66,7 +66,7 @@ function renderDigestEmail(args: { appUrl: string; digest: NonNullable<Awaited<R
   `;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     mustBeCron(req);
   } catch {

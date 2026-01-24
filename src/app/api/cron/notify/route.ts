@@ -1,7 +1,7 @@
 // cron reconcile/backfill: re-run scheduler functions for upcoming window
 // safe to run daily; scheduler functions handle deduplication via eventKey
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   scheduleSubscriptionRenewalSoon,
@@ -29,7 +29,7 @@ function addDaysUTC(d: Date, days: number) {
   return out;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     mustBeCron(req);
   } catch {

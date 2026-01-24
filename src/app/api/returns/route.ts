@@ -1,6 +1,6 @@
 //return endpoint
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { scheduleReturnDeadlineSoon, scheduleReturnDelivered } from "@/lib/notifications/eventNotificationScheduler";
@@ -12,7 +12,7 @@ function addDaysUTC(base: Date, days: number) {
   return d;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 

@@ -1,12 +1,12 @@
 //api list + mark read/dismiss
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ unreadCount, notifications });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 

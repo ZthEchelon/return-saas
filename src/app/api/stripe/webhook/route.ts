@@ -1,12 +1,12 @@
 //webhook endpoint
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripeClient";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const sig = (await headers()).get("stripe-signature");
   if (!sig) return new NextResponse("Missing signature", { status: 400 });
 

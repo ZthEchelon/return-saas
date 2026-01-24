@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { parseISODateParam } from "@/lib/dateParams";
@@ -62,7 +62,7 @@ function clampDayToMonth(year: number, monthZero: number, day: number) {
 }
 
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
