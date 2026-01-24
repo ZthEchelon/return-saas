@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { NotificationChannel } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   const { ruleType, daysBefore, channels } = body as {
     ruleType?: "RENEWAL_REMINDER";
     daysBefore?: number;
-    channels?: Array<"EMAIL_DIGEST" | "EMAIL_IMMEDIATE">;
+    channels?: NotificationChannel[];
   };
 
   if (!ruleType) return NextResponse.json({ error: "ruleType required" }, { status: 400 });
@@ -36,7 +37,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "daysBefore invalid" }, { status: 400 });
   }
 
-  const channelList = Array.isArray(channels) && channels.length > 0 ? channels : ["EMAIL_DIGEST"];
+  const channelList = (() => {
+    const allowed = new Set<NotificationChannel>([
+      NotificationChannel.EMAIL_DIGEST,
+      NotificationChannel.EMAIL_IMMEDIATE,
+    ]);
+    const filtered = Array.isArray(channels)
+      ? channels.filter((channel): channel is NotificationChannel => allowed.has(channel))
+      : [];
+    return filtered.length > 0 ? filtered : [NotificationChannel.EMAIL_DIGEST];
+  })();
 
   const rule = await prisma.userRule.create({
     data: {
