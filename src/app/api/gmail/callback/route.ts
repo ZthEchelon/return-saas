@@ -34,6 +34,7 @@ export async function GET(req: Request) {
       refreshToken: tokens.refresh_token ?? null,
       expiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
       scope: tokens.scope ?? null,
+      scopes: tokens.scope ?? null,
     },
     update: {
       provider: "GMAIL",
@@ -42,6 +43,7 @@ export async function GET(req: Request) {
       refreshToken: tokens.refresh_token ?? undefined, // only comes on first consent
       expiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
       scope: tokens.scope ?? null,
+      scopes: tokens.scope ?? null,
     },
   });
 

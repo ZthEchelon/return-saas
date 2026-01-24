@@ -20,5 +20,9 @@ export async function GET() {
     connected: hasRefresh || (hasAccess && notExpired),
     needsReauth: !hasRefresh && (!hasAccess || !notExpired),
     emailAddress: conn?.emailAddress ?? null,
+    scope: conn?.scope ?? null,
+    scopes: conn?.scopes ?? null,
+    scanMode: conn?.scanMode ?? "ALL",
+    lastScanAt: conn?.lastScanAt ?? null,
   });
 }

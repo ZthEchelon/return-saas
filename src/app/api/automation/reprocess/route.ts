@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Update transaction
-      await prisma.emailTransaction.update({
+      const updated = await prisma.emailTransaction.update({
         where: { id: tx.id },
         data: {
           merchant: purchase.merchant,
@@ -110,6 +110,69 @@ export async function POST(req: NextRequest) {
           parserError,
         },
       });
+
+      const prismaAny = prisma as typeof prisma & {
+        purchase: { upsert: (args: unknown) => Promise<{ id: string }> };
+        purchaseItem: {
+          deleteMany: (args: unknown) => Promise<unknown>;
+          createMany: (args: unknown) => Promise<unknown>;
+        };
+        purchaseAttachment: { createMany: (args: unknown) => Promise<unknown> };
+      };
+
+      const purchaseRow = await prismaAny.purchase.upsert({
+        where: { userId_sourceEmailId: { userId, sourceEmailId: updated.messageId } },
+        create: {
+          userId,
+          merchant: updated.merchant,
+          totalCents: updated.totalCents ?? null,
+          currency: (updated.currency ?? "CAD").toUpperCase(),
+          purchasedAt: updated.purchasedAt ?? new Date(),
+          orderNumber: updated.orderId ?? null,
+          paymentMethod: null,
+          source: "GMAIL",
+          sourceEmailId: updated.messageId,
+        },
+        update: {
+          merchant: updated.merchant,
+          totalCents: updated.totalCents ?? null,
+          currency: (updated.currency ?? "CAD").toUpperCase(),
+          purchasedAt: updated.purchasedAt ?? new Date(),
+          orderNumber: updated.orderId ?? null,
+        },
+      });
+
+      if (Array.isArray(updated.items)) {
+        await prismaAny.purchaseItem.deleteMany({ where: { purchaseId: purchaseRow.id } });
+        const items = (updated.items as Array<{ name?: string; quantity?: number; price?: number }>).map((it) => ({
+          purchaseId: purchaseRow.id,
+          title: String(it.name ?? "Item"),
+          qty: typeof it.quantity === "number" ? Math.max(1, Math.round(it.quantity)) : null,
+          priceCents: typeof it.price === "number" ? Math.round(it.price * 100) : null,
+          currency: (updated.currency ?? "CAD").toUpperCase(),
+        }));
+        if (items.length > 0) {
+          await prismaAny.purchaseItem.createMany({ data: items });
+        }
+      }
+
+      const docs = await prisma.receiptDocument.findMany({
+        where: { emailTransactionId: updated.id },
+        select: { storagePath: true, contentType: true },
+      });
+
+      if (docs.length > 0) {
+        await prismaAny.purchaseAttachment.createMany({
+          data: docs.map((doc) => ({
+            purchaseId: purchaseRow.id,
+            storageKey: doc.storagePath,
+            mime: doc.contentType ?? null,
+            sha256: null,
+            sourceEmailId: updated.messageId,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       if (!parserError) succeeded++;
       processed++;

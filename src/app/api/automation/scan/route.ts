@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/gmailPurchaseParser";
 import { saveReceiptAttachment } from "@/lib/receipts/receiptAttachmentStorage";
 import { getAuthedImap } from "@/lib/services/imapClient";
+import crypto from "crypto";
 
 type TrackingHit = { trackingNumber: string; carrier?: string };
 
@@ -57,6 +58,21 @@ function guessSuggestionType(merchant: string, subject?: string | null) {
   return "RETURN";
 }
 
+function hashSnippet(input: string) {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
+
+function detectSubscriptionItem(subject: string | null, decoded: string) {
+  const s = (subject ?? "").toLowerCase();
+  const body = decoded.toLowerCase();
+  const trialHints = /trial|free trial|trial ends|trial period/.test(s + " " + body);
+  const renewalHints = /renew|renews|upcoming charge|subscription|recurring|will be charged/.test(s + " " + body);
+
+  if (trialHints) return "TRIAL" as const;
+  if (renewalHints) return "RENEWAL" as const;
+  return "RENEWAL" as const;
+}
+
 function toISODateOnly(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -74,6 +90,7 @@ export async function POST(req: Request) {
 
   const authedImap = await getAuthedImap(userId);
   if (!authedImap) return NextResponse.json({ error: "IMAP not connected; add credentials at /api/imap/credentials" }, { status: 400 });
+  const scanMode = authedImap.conn.scanMode ?? "ALL";
 
   let already = 0;
   let parsed = 0;
@@ -188,19 +205,81 @@ export async function POST(req: Request) {
         already++;
       }
 
+      if (tx) {
+        const purchase = await prisma.purchase.upsert({
+          where: { userId_sourceEmailId: { userId, sourceEmailId: msg.messageId } },
+          create: {
+            userId,
+            merchant: tx.merchant,
+            totalCents: tx.totalCents ?? null,
+            currency: (tx.currency ?? "CAD").toUpperCase(),
+            purchasedAt: tx.purchasedAt ?? msg.internalDate ?? new Date(),
+            orderNumber: tx.orderId ?? null,
+            paymentMethod: null,
+            source: "GMAIL",
+            sourceEmailId: msg.messageId,
+          },
+          update: {
+            merchant: tx.merchant,
+            totalCents: tx.totalCents ?? null,
+            currency: (tx.currency ?? "CAD").toUpperCase(),
+            purchasedAt: tx.purchasedAt ?? msg.internalDate ?? new Date(),
+            orderNumber: tx.orderId ?? null,
+          },
+        });
+
+        if (Array.isArray(tx.items)) {
+          await prisma.purchaseItem.deleteMany({ where: { purchaseId: purchase.id } });
+          const items = (tx.items as Array<{ name?: string; quantity?: number; price?: number }>).map((it) => ({
+            purchaseId: purchase.id,
+            title: String(it.name ?? "Item"),
+            qty: typeof it.quantity === "number" ? Math.max(1, Math.round(it.quantity)) : null,
+            priceCents: typeof it.price === "number" ? Math.round(it.price * 100) : null,
+            currency: (tx.currency ?? "CAD").toUpperCase(),
+          }));
+          if (items.length > 0) {
+            await prisma.purchaseItem.createMany({ data: items });
+          }
+        }
+
+        const docs = await prisma.receiptDocument.findMany({
+          where: { emailTransactionId: tx.id },
+          select: { storagePath: true, contentType: true },
+        });
+
+        if (docs.length > 0) {
+          await prisma.purchaseAttachment.createMany({
+            data: docs.map((doc) => ({
+              purchaseId: purchase.id,
+              storageKey: doc.storagePath,
+              mime: doc.contentType ?? null,
+              sha256: null,
+              sourceEmailId: msg.messageId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      const suggestionType = tx ? guessSuggestionType(tx.merchant, tx.subject) : null;
+
       const existingSuggestion = await prisma.automationSuggestion.findUnique({
         where: { userId_primaryMessageId: { userId, primaryMessageId: msg.messageId } },
       });
 
-      if (!existingSuggestion && tx) {
+      const allowSuggestion = (() => {
+        if (!suggestionType) return false;
+        if (scanMode === "ALL") return true;
+        if (scanMode === "SUBSCRIPTIONS_ONLY") return suggestionType === "SUBSCRIPTION";
+        if (scanMode === "RECEIPTS_ONLY") return suggestionType === "RETURN" || suggestionType === "BILL";
+        if (scanMode === "SHIPPING_ONLY") return suggestionType === "RETURN" && trackingHits.length > 0;
+        return false;
+      })();
+
+      if (!existingSuggestion && tx && allowSuggestion) {
         const subj = (tx.subject ?? "").toLowerCase();
         const merch = (tx.merchant ?? "").toLowerCase();
-        const type =
-          subj.includes("bill") || subj.includes("statement") || subj.includes("invoice")
-            ? "BILL"
-            : subj.includes("subscription") || subj.includes("renew") || merch.includes("netflix") || merch.includes("spotify")
-            ? "SUBSCRIPTION"
-            : "RETURN";
+        const type = suggestionType;
 
         const detected = tx.purchasedAt ?? new Date();
         const detectedISO = detected.toISOString().slice(0, 10);
@@ -253,8 +332,62 @@ export async function POST(req: Request) {
 
         suggestionsCreated++;
       }
+
+      const allowDetected = (() => {
+        if (!suggestionType) return false;
+        if (scanMode === "ALL") return true;
+        if (scanMode === "SUBSCRIPTIONS_ONLY") return suggestionType === "SUBSCRIPTION";
+        if (scanMode === "RECEIPTS_ONLY") return suggestionType === "BILL";
+        return false;
+      })();
+
+      if (tx && suggestionType && allowDetected) {
+        const detectedDate = tx.purchasedAt ?? new Date();
+        const snippetSource = `${tx.subject ?? ""}\n${decoded.slice(0, 400)}`;
+        const snippetHash = hashSnippet(snippetSource);
+
+        let detectedType: "TRIAL" | "RENEWAL" | "BILL" | null = null;
+        if (suggestionType === "SUBSCRIPTION") {
+          detectedType = detectSubscriptionItem(tx.subject, decoded);
+        } else if (suggestionType === "BILL") {
+          detectedType = "BILL";
+        }
+
+        if (detectedType) {
+          const existingDetected = await prisma.detectedItem.findFirst({
+            where: {
+              userId,
+              type: detectedType,
+              rawSnippetHash: snippetHash,
+              date: detectedDate,
+            },
+            select: { id: true },
+          });
+
+          if (!existingDetected) {
+            await prisma.detectedItem.create({
+              data: {
+                userId,
+                type: detectedType,
+                merchant: tx.merchant,
+                amountCents: tx.totalCents ?? null,
+                currency: (tx.currency ?? "CAD").toUpperCase(),
+                date: detectedDate,
+                confidence: "MEDIUM",
+                sourceEmailId: msg.messageId,
+                rawSnippetHash: snippetHash,
+                status: "NEW",
+              },
+            });
+          }
+        }
+      }
     }
   } finally {
+    await prisma.emailConnection.updateMany({
+      where: { userId },
+      data: { lastScanAt: new Date() },
+    });
     await authedImap.client.logout().catch(() => {});
   }
 

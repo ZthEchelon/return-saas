@@ -2,6 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import RenewalRuleForm from "@/app/dashboard/automation/ui/RenewalRuleForm";
 
 export default async function SettingsRulesPage() {
   const { userId } = await auth();
@@ -9,10 +10,10 @@ export default async function SettingsRulesPage() {
 
   return (
     <main className="space-y-6">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-[#0b1220] p-6 shadow-2xl shadow-black/50">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-linear-to-br from-slate-950 via-slate-900 to-[#0b1220] p-6 shadow-2xl shadow-black/50">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-16 top-2 h-56 w-56 rounded-full bg-cyan-500/20 blur-[120px]" />
-          <div className="absolute right-[-80px] top-8 h-56 w-56 rounded-full bg-emerald-400/18 blur-[120px]" />
+          <div className="absolute -right-20 top-8 h-56 w-56 rounded-full bg-emerald-400/18 blur-[120px]" />
         </div>
         <div className="relative">
           <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-100">Settings</p>
@@ -22,6 +23,8 @@ export default async function SettingsRulesPage() {
       </div>
 
       <div className="rounded-2xl border bg-white/50 p-4 shadow-sm space-y-4">
+        <RenewalRuleForm />
+
         <div className="rounded-2xl border p-4">
           <div className="text-sm font-semibold">Merchant defaults</div>
           <div className="mt-1 text-sm opacity-70">Example: Nike → 30 day return window. (We’ll wire this to DB next.)</div>

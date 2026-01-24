@@ -6,6 +6,16 @@ import { refreshShipmentTimeline, syncRefundExpectation } from "@/lib/domain/shi
 
 export const runtime = "nodejs";
 
+function rankedActionsForSubscription() {
+  return [
+    { id: "KEEP", label: "Keep" },
+    { id: "CANCEL", label: "Cancel" },
+    { id: "SNOOZE", label: "Snooze" },
+    { id: "DOWNGRADE", label: "Downgrade" },
+    { id: "SWITCH_ANNUAL", label: "Switch annual" },
+  ];
+}
+
 function isoDateOnlyToUTC(dateOnly: string) {
   // expects YYYY-MM-DD
   return new Date(dateOnly + "T00:00:00.000Z");
@@ -42,11 +52,24 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-  const { id, action, draft } = body as {
-    id: string;
-    action: "CONFIRM" | "IGNORE";
+  const { id, action, draft, intent } = body as {
+    id?: string;
+    action?: "CONFIRM" | "IGNORE";
     draft?: Record<string, unknown>;
+    intent?: "ACTIONS";
   };
+
+  if (intent === "ACTIONS") {
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    const s = await prisma.automationSuggestion.findFirst({ where: { id, userId } });
+    if (!s) return new NextResponse("Not found", { status: 404 });
+
+    if (s.type === "SUBSCRIPTION") {
+      return NextResponse.json({ actions: rankedActionsForSubscription() });
+    }
+
+    return NextResponse.json({ actions: [] });
+  }
 
   if (!id || !action) return NextResponse.json({ error: "Missing id/action" }, { status: 400 });
 
@@ -68,7 +91,11 @@ export async function POST(req: Request) {
   const storedDraft = (s.draft as Record<string, unknown> | null) ?? {};
   const mergedDraft = { ...storedDraft, ...(draft ?? {}) };
 
-  const type = s.type as "RETURN" | "SUBSCRIPTION" | "BILL";
+  const typeRaw = (mergedDraft.type ?? s.type) as string;
+  const type = (typeRaw === "SUBSCRIPTION" || typeRaw === "BILL" ? typeRaw : "RETURN") as
+    | "RETURN"
+    | "SUBSCRIPTION"
+    | "BILL";
   const merchant = (mergedDraft.merchant ?? s.merchant) as string;
   const currency = String(mergedDraft.currency ?? s.currency ?? "CAD").toUpperCase();
 
@@ -192,6 +219,14 @@ export async function POST(req: Request) {
     const cadence: "MONTHLY" | "YEARLY" | "CUSTOM" =
       cadenceRaw === "YEARLY" || cadenceRaw === "CUSTOM" ? (cadenceRaw as typeof cadence) : "MONTHLY";
 
+    const trialEndAtRaw = typeof mergedDraft.trialEndAt === "string" ? mergedDraft.trialEndAt : null;
+    let trialEndAt: Date | null = null;
+    if (trialEndAtRaw) {
+      const te = new Date(trialEndAtRaw);
+      if (Number.isNaN(te.getTime())) return NextResponse.json({ error: "trialEndAt invalid" }, { status: 400 });
+      trialEndAt = te;
+    }
+
     const createdSub = await prisma.subscription.create({
       data: {
         userId,
@@ -199,8 +234,14 @@ export async function POST(req: Request) {
         amountCents: amountCents ?? 0,
         currency,
         renewalDate,
+        renewalAt: renewalDate,
+        renewalCadence: cadence,
         cadence,
         status: "ACTIVE",
+        trialEndAt,
+        cancelUrl: typeof mergedDraft.cancelUrl === "string" ? mergedDraft.cancelUrl : null,
+        cancelInstructions: typeof mergedDraft.cancelInstructions === "string" ? mergedDraft.cancelInstructions : null,
+        merchantCanonicalId: typeof mergedDraft.merchantCanonicalId === "string" ? mergedDraft.merchantCanonicalId : null,
       },
     });
 

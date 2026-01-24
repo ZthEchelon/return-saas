@@ -5,6 +5,7 @@ import { parseISODateParam } from "@/lib/dateParams";
 
 type EventType =
   | "RENEWAL"
+  | "TRIAL_END"
   | "RETURN_DEADLINE"
   | "REFUND_CHECK"
   | "REFUND_EXPECTED"
@@ -98,7 +99,10 @@ export async function GET(req: Request) {
     prisma.subscription.findMany({
       where: {
         userId,
-        renewalDate: { gte: start, lt: end },
+        OR: [
+          { renewalDate: { gte: start, lt: end } },
+          { trialEndAt: { gte: start, lt: end } },
+        ],
         status: "ACTIVE",
       },
       select: {
@@ -107,6 +111,7 @@ export async function GET(req: Request) {
         amountCents: true,
         currency: true,
         renewalDate: true,
+        trialEndAt: true,
       },
       orderBy: { renewalDate: "asc" },
     }),
@@ -182,6 +187,18 @@ export async function GET(req: Request) {
       currency: s.currency,
       source: { kind: "subscription", sourceId: s.id },
     });
+
+    if (s.trialEndAt && s.trialEndAt >= start && s.trialEndAt < end) {
+      events.push({
+        id: `trial_${s.id}_${toISODateOnlyUTC(s.trialEndAt)}`,
+        type: "TRIAL_END",
+        date: toISODateOnlyUTC(s.trialEndAt),
+        title: `${s.name} trial ends`,
+        amountCents: s.amountCents,
+        currency: s.currency,
+        source: { kind: "subscription", sourceId: s.id },
+      });
+    }
   }
 
   // Cancelled subscriptions (logged by updatedAt)

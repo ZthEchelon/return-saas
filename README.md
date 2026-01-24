@@ -1,42 +1,114 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Return SaaS
 
-## Getting Started
+A Next.js SaaS app for tracking returns, receipts, and subscriptions. It supports Gmail/IMAP ingestion, automated digests and notifications, Stripe billing, and a dashboard for analytics and operations.
 
-First, run the development server:
+## Docs
+
+- [docs/onboarding.md](docs/onboarding.md)
+- [docs/env.md](docs/env.md)
+- [docs/architecture.md](docs/architecture.md)
+
+## Features
+
+- Return and shipment tracking with status updates.
+- Receipt ingestion (PDF/email) and bill management.
+- Purchases Inbox (unified purchase proof feed) with one-tap return creation.
+- Trial/Renewal detection with Detected inbox and one-tap actions.
+- Automation rules, suggestions, and digest notifications.
+- Privacy & Data controls: scan modes, export, and delete.
+- Stripe subscriptions and billing flows.
+- Dashboard for analytics, calendar, notifications, and settings.
+
+## Tech stack
+
+- Next.js (App Router) + React 19
+- Prisma + Postgres
+- Clerk authentication
+- Stripe billing
+- Resend email delivery
+- Gmail API + IMAP integrations
+
+## Getting started
+
+### 1) Install dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2) Configure environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy [.env.example](.env.example) to [.env.local](.env.local) and fill in values. See [docs/env.md](docs/env.md).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3) Prepare the database
 
-## Prisma setup
+```bash
+pnpm run prisma:migrate:deploy
+```
 
-- Ensure `DATABASE_URL` is set for the Postgres instance you want to use.
-- Apply migrations to any new database before serving traffic: `pnpm run prisma:migrate:deploy`.
-- Deployments on Vercel run `pnpm run vercel-build`, which now runs the migrations before `next build` so tables like `Bill`, `Subscription`, `ReturnItem`, and `Notification` exist in production.
+### 4) Run the app
 
-## Learn More
+```bash
+pnpm dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Start the dev server. |
+| `pnpm build` | Build for production. |
+| `pnpm start` | Start the production server. |
+| `pnpm lint` | Run ESLint. |
+| `pnpm run prisma:migrate:deploy` | Apply Prisma migrations. |
+| `pnpm run vercel-build` | Run migrations then build (Vercel). |
 
-## Deploy on Vercel
+## Project structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [src/app](src/app) — routes, pages, and API handlers.
+- [src/lib](src/lib) — services, data access, and domain logic.
+- [prisma](prisma) — database schema and migrations.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Key flows
+
+- Detected inbox: [src/app/dashboard/settings/automation/detected/page.tsx](src/app/dashboard/settings/automation/detected/page.tsx)
+- Purchases Inbox: [src/app/dashboard/receipts/inbox/page.tsx](src/app/dashboard/receipts/inbox/page.tsx)
+- Privacy & Data: [src/app/dashboard/settings/privacy/page.tsx](src/app/dashboard/settings/privacy/page.tsx)
+
+## Domain map
+
+- Returns, shipment tracking, and refunds.
+- Subscriptions and billing.
+- Bills and recurring payments.
+- Receipts and email ingestion.
+- Notifications and digests.
+- Automation suggestions and review.
+
+## API map
+
+- [src/app/api](src/app/api) — REST-style route handlers by domain.
+
+## Privacy endpoints
+
+- [src/app/api/gmail/scan-mode/route.ts](src/app/api/gmail/scan-mode/route.ts)
+- [src/app/api/data/summary/route.ts](src/app/api/data/summary/route.ts)
+- [src/app/api/data/export/route.ts](src/app/api/data/export/route.ts)
+- [src/app/api/data/delete/route.ts](src/app/api/data/delete/route.ts)
+
+## Data model
+
+- [prisma/schema.prisma](prisma/schema.prisma) — core tables for subscriptions, returns, bills, receipts, notifications, and billing.
+
+## Cron jobs
+
+The following endpoints require `CRON_SECRET`:
+
+- `/api/cron/digest`
+- `/api/cron/notify`
+- `/api/cron/shipping`
+
+## Deployment
+
+Deploy on Vercel with `pnpm run vercel-build` so migrations run before `next build`.

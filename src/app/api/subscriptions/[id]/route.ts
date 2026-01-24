@@ -23,6 +23,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     renewalDate?: Date;
     cadence?: "MONTHLY" | "YEARLY" | "CUSTOM";
     cancelUrl?: string | null;
+    cancelInstructions?: string | null;
+    merchantCanonicalId?: string | null;
+    trialEndAt?: Date | null;
+    renewalAt?: Date | null;
+    renewalCadence?: "MONTHLY" | "YEARLY" | "CUSTOM" | null;
     notes?: string | null;
     status?: "ACTIVE" | "CANCELLED";
   } = {};
@@ -35,6 +40,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (c === "MONTHLY" || c === "YEARLY" || c === "CUSTOM") data.cadence = c;
   }
   if (typeof body.cancelUrl === "string" || body.cancelUrl === null) data.cancelUrl = body.cancelUrl;
+  if (typeof body.cancelInstructions === "string" || body.cancelInstructions === null) data.cancelInstructions = body.cancelInstructions;
+  if (typeof body.merchantCanonicalId === "string" || body.merchantCanonicalId === null) data.merchantCanonicalId = body.merchantCanonicalId;
   if (typeof body.notes === "string" || body.notes === null) data.notes = body.notes;
   if (typeof body.status === "string" && (body.status === "ACTIVE" || body.status === "CANCELLED")) data.status = body.status;
 
@@ -42,6 +49,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const rd = new Date(body.renewalDate);
     if (Number.isNaN(rd.getTime())) return NextResponse.json({ error: "renewalDate invalid" }, { status: 400 });
     data.renewalDate = rd;
+    data.renewalAt = rd;
+  }
+
+  if (typeof body.renewalCadence === "string") {
+    const rc = body.renewalCadence.toUpperCase();
+    if (rc === "MONTHLY" || rc === "YEARLY" || rc === "CUSTOM") data.renewalCadence = rc;
+  }
+
+  if (typeof body.trialEndAt === "string") {
+    const te = new Date(body.trialEndAt);
+    if (Number.isNaN(te.getTime())) return NextResponse.json({ error: "trialEndAt invalid" }, { status: 400 });
+    data.trialEndAt = te;
   }
 
   const updated = await prisma.subscription.update({

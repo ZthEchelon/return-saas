@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "audit:parses": "node scripts/parseAudit.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

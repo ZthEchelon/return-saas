@@ -86,11 +86,16 @@ export async function scheduleSubscriptionRenewalSoon(args: {
   amountCents?: number | null;
   currency?: string | null;
 }) {
+  const rule = await prisma.userRule.findFirst({
+    where: { userId: args.userId, ruleType: "RENEWAL_REMINDER" },
+    orderBy: { createdAt: "desc" },
+    select: { daysBefore: true },
+  });
   const pref = await prisma.notificationPreference.findUnique({
     where: { userId: args.userId },
     select: { subLeadDays: true },
   });
-  const leadDays = pref?.subLeadDays ?? 3;
+  const leadDays = rule?.daysBefore ?? pref?.subLeadDays ?? 3;
 
   const today = startOfDayUTC(new Date());
   const eventDay = startOfDayUTC(args.renewalDate);

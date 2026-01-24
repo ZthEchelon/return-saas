@@ -19,6 +19,22 @@ enum SubscriptionCadence {
   CUSTOM
 }
 
+enum DetectedItemType {
+  TRIAL
+  RENEWAL
+  BILL
+}
+
+enum DetectedItemStatus {
+  NEW
+  CONFIRMED
+  DISMISSED
+}
+
+enum RuleType {
+  RENEWAL_REMINDER
+}
+
 enum SubscriptionStatus {
   ACTIVE
   CANCELLED
@@ -49,8 +65,15 @@ model Subscription {
   status      SubscriptionStatus  @default(ACTIVE)
   cancelUrl   String?
   notes       String?
+  trialEndAt  DateTime?
+  renewalAt   DateTime?
+  renewalCadence SubscriptionCadence?
+  cancelInstructions String?
+  merchantCanonicalId String?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+
+  detectedItems DetectedItem[]
 
   @@index([userId, renewalDate])
 }
@@ -58,6 +81,7 @@ model Subscription {
 model ReturnItem {
   id               String       @id @default(cuid())
   userId           String
+  purchaseId       String?
   store            String
   itemNote         String?
   amountCents      Int?
@@ -82,6 +106,7 @@ model ReturnItem {
 
   shipmentEvents ShipmentEvent[] @relation("ReturnItemShipmentEvents")
   refundCase      RefundCase?     @relation("ReturnItemRefundCase")
+  purchase        Purchase?       @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
 
   @@index([userId, returnBy])
   @@index([userId, refundExpectedAt]) // optional but helpful
@@ -170,6 +195,26 @@ enum EmailProvider {
   UPLOAD
 }
 
+enum PurchaseSource {
+  GMAIL
+  UPLOAD
+  MANUAL
+}
+
+enum ScanMode {
+  ALL
+  RECEIPTS_ONLY
+  SHIPPING_ONLY
+  SUBSCRIPTIONS_ONLY
+}
+
+enum DataDeletionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 // Snoozed calendar events (per user, per event id, until a UTC date)
 model SnoozedEvent {
   id           String   @id @default(cuid())
@@ -209,6 +254,59 @@ model ReceiptUpload {
   @@index([userId, createdAt])
 }
 
+model Purchase {
+  id            String         @id @default(cuid())
+  userId        String
+  merchant      String
+  totalCents    Int?
+  currency      String         @default("CAD")
+  purchasedAt   DateTime
+  orderNumber   String?
+  paymentMethod String?
+  source        PurchaseSource @default(GMAIL)
+  sourceEmailId String?
+
+  items       PurchaseItem[]
+  attachments PurchaseAttachment[]
+  returns     ReturnItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, purchasedAt])
+  @@index([userId, merchant])
+  @@unique([userId, sourceEmailId])
+}
+
+model PurchaseItem {
+  id          String   @id @default(cuid())
+  purchaseId  String
+  title       String
+  qty         Int?
+  priceCents  Int?
+  currency    String  @default("CAD")
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId])
+}
+
+model PurchaseAttachment {
+  id            String   @id @default(cuid())
+  purchaseId    String
+  storageKey    String
+  mime          String?
+  sha256        String?
+  sourceEmailId String?
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+  @@unique([purchaseId, storageKey])
+}
+
 enum SuggestionStatus {
   NEW
   CONFIRMED
@@ -231,6 +329,9 @@ model EmailConnection {
   refreshToken String?
   expiry       DateTime?
   scope        String?
+  scopes       String?
+  lastScanAt   DateTime?
+  scanMode     ScanMode     @default(ALL)
   imapUser     String?
   imapPassword String?
   imapHost     String?
@@ -239,6 +340,17 @@ model EmailConnection {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model DataDeletionJob {
+  id          String             @id @default(cuid())
+  userId      String
+  requestedAt DateTime           @default(now())
+  status      DataDeletionStatus @default(PENDING)
+  completedAt DateTime?
+  error       String?
+
+  @@index([userId, status])
 }
 
 model EmailMessage {
@@ -283,6 +395,43 @@ model AutomationSuggestion {
   @@unique([userId, primaryMessageId])
   @@index([userId, status])
   @@index([userId, type])
+}
+
+model DetectedItem {
+  id            String             @id @default(cuid())
+  userId        String
+  type          DetectedItemType
+  merchant      String
+  amountCents   Int?
+  currency      String             @default("CAD")
+  date          DateTime
+  confidence    String
+  sourceEmailId String?
+  rawSnippetHash String
+  status        DetectedItemStatus @default(NEW)
+
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, date])
+  @@index([userId, merchant])
+}
+
+model UserRule {
+  id        String   @id @default(cuid())
+  userId    String
+  ruleType  RuleType
+  daysBefore Int
+  channels  NotificationChannel[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, ruleType])
 }
 
 model EmailTransaction {

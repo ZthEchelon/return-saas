@@ -29,6 +29,9 @@ export default async function SettingsPage() {
             <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/automation/rules">
               Rules
             </Link>
+            <Link className="pill-link border-white/30 text-white hover:border-white/70 hover:bg-white/10" href="/dashboard/settings/privacy">
+              Privacy & Data
+            </Link>
           </div>
         </div>
       </div>

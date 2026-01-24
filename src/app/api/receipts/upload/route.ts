@@ -79,6 +79,40 @@ export async function POST(req: Request) {
     },
   });
 
+  const purchase = await prisma.purchase.upsert({
+    where: { userId_sourceEmailId: { userId, sourceEmailId: receipt.id } },
+    create: {
+      userId,
+      merchant: parsed.merchant,
+      totalCents: parsed.amountCents ?? null,
+      currency: (parsed.currency ?? "CAD").toUpperCase(),
+      purchasedAt: new Date(parsed.purchaseDate + "T00:00:00.000Z"),
+      orderNumber: null,
+      paymentMethod: null,
+      source: "UPLOAD",
+      sourceEmailId: receipt.id,
+    },
+    update: {
+      merchant: parsed.merchant,
+      totalCents: parsed.amountCents ?? null,
+      currency: (parsed.currency ?? "CAD").toUpperCase(),
+      purchasedAt: new Date(parsed.purchaseDate + "T00:00:00.000Z"),
+    },
+  });
+
+  await prisma.purchaseAttachment.createMany({
+    data: [
+      {
+        purchaseId: purchase.id,
+        storageKey: storagePath,
+        mime: contentType,
+        sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+        sourceEmailId: receipt.id,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
   // create NEW suggestion (defaults to RETURN, user can change type in Inbox Review)
   const suggestion = await prisma.automationSuggestion.create({
     data: {
@@ -106,6 +140,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     receiptId: receipt.id,
+    purchaseId: purchase.id,
     suggestionId: suggestion.id,
   });
 }

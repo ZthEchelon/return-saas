@@ -54,6 +54,9 @@ export default async function ReceiptsPage() {
             <p className="text-sm text-slate-200/80">Upload PDFs or images, keep them searchable, and turn them into refunds or bill evidence.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link className="pill-link" href="/dashboard/receipts/inbox">
+              Purchases inbox
+            </Link>
             <Link className="pill-link" href="/dashboard/receipts/upload">
               Upload receipt
             </Link>
