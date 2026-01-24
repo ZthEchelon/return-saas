@@ -277,6 +277,9 @@ export async function POST(req: NextRequest) {
       })();
 
       if (!existingSuggestion && tx && allowSuggestion) {
+        if (!suggestionType) {
+          continue;
+        }
         const subj = (tx.subject ?? "").toLowerCase();
         const merch = (tx.merchant ?? "").toLowerCase();
         const type = suggestionType;
