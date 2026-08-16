@@ -86,6 +86,9 @@ export async function POST(req: Request) {
       suggestionsCreated++;
     }
 
+    // Persist any token refresh that happened during the scan before returning.
+    await authed.flushTokens();
+
     return NextResponse.json({
       ok: true,
       importedEmails,

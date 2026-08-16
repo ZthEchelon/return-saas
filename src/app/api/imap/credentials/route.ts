@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { encryptConnectionSecrets } from "@/lib/security/emailConnectionSecrets";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,7 @@ export async function GET() {
 
   const conn = await prisma.emailConnection.findUnique({
     where: { userId },
-    select: { imapUser: true, imapHost: true, imapPort: true, imapSecure: true, emailAddress: true, provider: true },
+    select: { imapUser: true, imapHost: true, imapPort: true, imapSecure: true, emailAddress: true, provider: true, imapPassword: true },
   });
 
   return NextResponse.json({
@@ -22,7 +23,7 @@ export async function GET() {
           imapPort: conn.imapPort,
           imapSecure: conn.imapSecure,
           provider: conn.provider,
-          hasPassword: true, // we don’t return password
+          hasPassword: Boolean(conn.imapPassword), // never the password itself, just whether one is stored
         }
       : null,
   });
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       provider: "GMAIL",
       emailAddress: emailAddress ?? undefined,
       imapUser: imapUser ?? undefined,
-      imapPassword: imapPassword ?? undefined,
+      ...encryptConnectionSecrets(userId, { imapPassword: imapPassword ?? undefined }),
       imapHost: imapHost ?? undefined,
       imapPort: imapPort ?? undefined,
       imapSecure: imapSecure ?? undefined,
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     update: {
       emailAddress: emailAddress ?? undefined,
       imapUser: imapUser ?? undefined,
-      imapPassword: imapPassword ?? undefined,
+      ...encryptConnectionSecrets(userId, { imapPassword: imapPassword ?? undefined }),
       imapHost: imapHost ?? undefined,
       imapPort: imapPort ?? undefined,
       imapSecure: imapSecure ?? undefined,

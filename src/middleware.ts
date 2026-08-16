@@ -12,8 +12,8 @@ const isPublicRoute = createRouteMatcher([
   "/terms(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/api/cron(.*)",        // ✅ allow cron endpoints without Clerk
-  "/api/webhooks(.*)",    // (optional) if you have Stripe webhooks etc
+  "/api/cron(.*)",          // ✅ allow cron endpoints without Clerk
+  "/api/stripe/webhook",    // Stripe verifies stripe-signature itself; Clerk has no session for Stripe.
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAuthorizedCronRequest } from "@/lib/security/cronAuth";
 import { refreshShipmentTimeline } from "@/lib/domain/shipping/tracking";
 import { scheduleRefundOverdueOnce } from "@/lib/notifications/eventNotificationScheduler";
 
 export const runtime = "nodejs";
 
-function mustBeCron(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return;
-  const got = req.headers.get("x-cron-secret");
-  if (got !== secret) throw new Error("Forbidden");
-}
-
 export async function POST(req: NextRequest) {
-  try {
-    mustBeCron(req);
-  } catch {
+  if (!isAuthorizedCronRequest(req)) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 

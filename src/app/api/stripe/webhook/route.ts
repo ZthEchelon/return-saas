@@ -23,15 +23,35 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Webhook signature verification failed", { status: 400 });
   }
 
-  // Idempotency: store processed event IDs
-  const existing = await prisma.webhookEvent.findUnique({ where: { id: event.id } });
-  if (existing) return NextResponse.json({ received: true });
+  // Idempotency. The insert itself is the claim: a unique-constraint violation
+  // means another concurrent delivery of this event already owns it. A
+  // read-then-write check would let two simultaneous retries both pass.
+  try {
+    await prisma.webhookEvent.create({ data: { id: event.id, type: event.type } });
+  } catch (err) {
+    if (isUniqueViolation(err)) return NextResponse.json({ received: true });
+    throw err;
+  }
 
-  await prisma.webhookEvent.create({
-    data: { id: event.id, type: event.type },
-  });
+  try {
+    await handleStripeEvent(event);
+  } catch (err) {
+    // Release the claim so Stripe's retry is processed instead of being
+    // discarded as a duplicate. Without this, one failed handler silently
+    // drops the event forever - e.g. a paying customer never leaving FREE.
+    await prisma.webhookEvent.delete({ where: { id: event.id } }).catch(() => {});
+    console.error(`[stripe] handler failed for ${event.type} ${event.id}`, err);
+    return new NextResponse("Webhook handler failed", { status: 500 });
+  }
 
-  // Handle events
+  return NextResponse.json({ received: true });
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002";
+}
+
+async function handleStripeEvent(event: Stripe.Event) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -90,6 +110,4 @@ export async function POST(req: NextRequest) {
       break;
     }
   }
-
-  return NextResponse.json({ received: true });
 }

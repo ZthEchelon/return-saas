@@ -1,9 +1,22 @@
 //for uploading receipts pdf format?
 
 import "server-only";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-const pdfParse = require("pdf-parse");
+
+// pdf-parse pulls in pdfjs, which touches browser globals (DOMMatrix, Path2D) at
+// module scope. Requiring it eagerly crashes `next build` while it collects page
+// data, so it is loaded lazily at call time - the same approach gmailPurchaseParser
+// already uses.
+async function loadPdfParse(): Promise<((input: Buffer) => Promise<{ text?: string }>) | null> {
+  const mod = await import("pdf-parse").catch(() => null);
+  if (!mod) return null;
+  const candidate =
+    (mod as Record<string, unknown>).default ??
+    (mod as Record<string, unknown>).PDFParse ??
+    mod;
+  return typeof candidate === "function"
+    ? (candidate as (input: Buffer) => Promise<{ text?: string }>)
+    : null;
+}
 
 function firstNonEmptyLine(text: string) {
   return text
@@ -84,6 +97,8 @@ export async function parseReceiptUpload(params: {
 
   // PDF path
   if (contentType.includes("pdf") || filename.toLowerCase().endsWith(".pdf")) {
+    const pdfParse = await loadPdfParse();
+    if (!pdfParse) throw new Error("PDF parsing is unavailable");
     const pdf = await pdfParse(params.buffer);
     const text = pdf.text ?? "";
 

@@ -1,5 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { prisma } from "@/lib/prisma";
+import { readConnectionSecret } from "@/lib/security/emailConnectionSecrets";
 
 type ImapAuth =
   | { user: string; accessToken: string }
@@ -15,12 +16,19 @@ export async function getAuthedImap(userId: string) {
   const secure = secureRaw === undefined ? true : Boolean(secureRaw);
 
   const user = conn.imapUser ?? conn.emailAddress ?? process.env.IMAP_USER;
-  const accessToken = conn.accessToken;
-  const password = conn.imapPassword ?? process.env.IMAP_PASSWORD;
+
+  // Decrypted in memory only, at the point of use.
+  const accessToken = readConnectionSecret(userId, "accessToken", conn.accessToken);
+  const password = readConnectionSecret(userId, "imapPassword", conn.imapPassword) ?? process.env.IMAP_PASSWORD;
+
+  // XOAUTH2 with a stale access token fails the IMAP handshake outright, so an
+  // expired token must not shadow a perfectly good stored password.
+  const accessTokenUsable =
+    accessToken && (!conn.expiry || conn.expiry.getTime() > Date.now()) ? accessToken : null;
 
   let auth: ImapAuth | null = null;
-  if (accessToken && user) {
-    auth = { user, accessToken };
+  if (accessTokenUsable && user) {
+    auth = { user, accessToken: accessTokenUsable };
   } else if (user && password) {
     auth = { user, pass: password };
   }

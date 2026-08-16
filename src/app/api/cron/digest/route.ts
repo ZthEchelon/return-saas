@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAuthorizedCronRequest } from "@/lib/security/cronAuth";
 import { sendEmail } from "@/lib/email";
 import { buildDigestForUser } from "@/lib/notifications/digestBuilder";
 import { claimDueDigestJobs, nextRetrySendAt, scheduleNextDigestJob } from "@/lib/notifications/digestJobScheduler";
 
 export const runtime = "nodejs";
-
-function mustBeCron(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return;
-  const got = req.headers.get("x-cron-secret");
-  if (got !== secret) throw new Error("Forbidden");
-}
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -67,9 +61,7 @@ function renderDigestEmail(args: { appUrl: string; digest: NonNullable<Awaited<R
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    mustBeCron(req);
-  } catch {
+  if (!isAuthorizedCronRequest(req)) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 

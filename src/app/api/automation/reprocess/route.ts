@@ -186,6 +186,10 @@ export async function POST(req: NextRequest) {
   const hasMore = offset + batchSize < totalCount;
   const nextOffset = hasMore ? offset + batchSize : null;
 
+  // Gmail may have silently refreshed our tokens above; make sure that write
+  // lands before this function returns and the runtime freezes.
+  await authed.flushTokens();
+
   return NextResponse.json({
     totalCount,
     processed,

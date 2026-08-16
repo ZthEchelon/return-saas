@@ -10,7 +10,9 @@
     "lint": "eslint",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "audit:parses": "node scripts/parseAudit.js",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.mts\"",
+    "secrets:encrypt": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/encryptExistingSecrets.mts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.7",
