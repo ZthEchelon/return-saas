@@ -11,9 +11,6 @@ export async function POST() {
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
   await prisma.emailConnection.deleteMany({ where: { userId } });
-  // keep imported messages/suggestions if you want; or delete them too:
-  // await prisma.emailMessage.deleteMany({ where: { userId } });
-  // await prisma.automationSuggestion.deleteMany({ where: { userId } });
 
   return NextResponse.json({ ok: true });
 }

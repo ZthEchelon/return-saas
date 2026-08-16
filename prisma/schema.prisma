@@ -66,8 +66,6 @@ model Subscription {
   cancelUrl   String?
   notes       String?
   trialEndAt  DateTime?
-  renewalAt   DateTime?
-  renewalCadence SubscriptionCadence?
   cancelInstructions String?
   merchantCanonicalId String?
   createdAt   DateTime            @default(now())
@@ -130,8 +128,7 @@ model Bill {
   notes         String?
   status        BillStatus @default(ACTIVE)
 
-  payments    BillPayment[]
-  occurrences BillOccurrence[]
+  payments BillPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -329,7 +326,6 @@ model EmailConnection {
   refreshToken String?
   expiry       DateTime?
   scope        String?
-  scopes       String?
   lastScanAt   DateTime?
   scanMode     ScanMode     @default(ALL)
   imapUser     String?
@@ -351,22 +347,6 @@ model DataDeletionJob {
   error       String?
 
   @@index([userId, status])
-}
-
-model EmailMessage {
-  id       String        @id // Gmail messageId
-  userId   String
-  provider EmailProvider @default(GMAIL)
-
-  threadId     String?
-  internalDate DateTime?
-  fromEmail    String?
-  subject      String?
-  snippet      String?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId, provider])
 }
 
 model AutomationSuggestion {
@@ -492,30 +472,6 @@ model SubscriptionPayment {
   @@index([userId, subscriptionId, paidAt])
 }
 
-enum BillOccurrenceStatus {
-  DUE
-  PAID
-}
-
-model BillOccurrence {
-  id     String @id @default(cuid())
-  userId String
-  billId String
-  bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
-
-  dueDate     DateTime
-  status      BillOccurrenceStatus @default(DUE)
-  paidAt      DateTime?
-  amountCents Int?
-  currency    String               @default("CAD")
-
-  createdAt DateTime @default(now())
-
-  @@unique([billId, dueDate])
-  @@index([userId, dueDate])
-  @@index([userId, status])
-}
-
 enum NotificationType {
   SUBSCRIPTION_RENEWAL_SOON
   RETURN_DEADLINE_SOON
@@ -619,27 +575,6 @@ model NotificationPreference {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model DigestSendLog {
-  id        String   @id @default(cuid())
-  userId    String
-  dateLocal String // "YYYY-MM-DD" in user’s timezone
-  sentAt    DateTime @default(now())
-
-  // Idempotency
-  @@unique([userId, dateLocal])
-  @@index([userId, sentAt])
-}
-
-model DigestRun {
-  id         String   @id @default(cuid())
-  userId     String
-  digestDate String // user's local date "YYYY-MM-DD"
-  createdAt  DateTime @default(now())
-
-  @@unique([userId, digestDate])
-  @@index([userId, digestDate])
 }
 
 model ShipmentEvent {

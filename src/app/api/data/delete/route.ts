@@ -15,8 +15,6 @@ export async function POST() {
   try {
     await prisma.notificationJob.deleteMany({ where: { userId } });
     await prisma.notification.deleteMany({ where: { userId } });
-    await prisma.digestRun.deleteMany({ where: { userId } });
-    await prisma.digestSendLog.deleteMany({ where: { userId } });
     await prisma.snoozedEvent.deleteMany({ where: { userId } });
 
     await prisma.returnItem.deleteMany({ where: { userId } });
@@ -27,7 +25,6 @@ export async function POST() {
     await prisma.subscription.deleteMany({ where: { userId } });
 
     await prisma.billPayment.deleteMany({ where: { userId } });
-    await prisma.billOccurrence.deleteMany({ where: { userId } });
     await prisma.bill.deleteMany({ where: { userId } });
 
     await prisma.purchaseItem.deleteMany({ where: { purchase: { userId } } });
@@ -38,7 +35,6 @@ export async function POST() {
     await prisma.receiptUpload.deleteMany({ where: { userId } });
 
     await prisma.emailTransaction.deleteMany({ where: { userId } });
-    await prisma.emailMessage.deleteMany({ where: { userId } });
     await prisma.automationSuggestion.deleteMany({ where: { userId } });
     await prisma.detectedItem.deleteMany({ where: { userId } });
     await prisma.valueEvent.deleteMany({ where: { userId } });
