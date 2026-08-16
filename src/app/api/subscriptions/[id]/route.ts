@@ -1,8 +1,8 @@
 // update subscription endpoint (edit/cancel)
 import { NextResponse, NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { prisma } from "@/lib/data-access/prisma";
+import { scheduleSubscriptionRenewalSoon } from "@/lib/domain/notifications/eventNotificationScheduler";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
@@ -26,8 +26,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     cancelInstructions?: string | null;
     merchantCanonicalId?: string | null;
     trialEndAt?: Date | null;
-    renewalAt?: Date | null;
-    renewalCadence?: "MONTHLY" | "YEARLY" | "CUSTOM" | null;
     notes?: string | null;
     status?: "ACTIVE" | "CANCELLED";
   } = {};
@@ -49,12 +47,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const rd = new Date(body.renewalDate);
     if (Number.isNaN(rd.getTime())) return NextResponse.json({ error: "renewalDate invalid" }, { status: 400 });
     data.renewalDate = rd;
-    data.renewalAt = rd;
-  }
-
-  if (typeof body.renewalCadence === "string") {
-    const rc = body.renewalCadence.toUpperCase();
-    if (rc === "MONTHLY" || rc === "YEARLY" || rc === "CUSTOM") data.renewalCadence = rc;
   }
 
   if (typeof body.trialEndAt === "string") {

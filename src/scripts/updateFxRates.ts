@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 
 // Source: ECB via exchangerate.host (free, no key). Base EUR.
 const FX_ENDPOINT = "https://api.exchangerate.host/latest?base=EUR";

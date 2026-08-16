@@ -1,7 +1,7 @@
 //gmail helpers
 
 import { google } from "googleapis";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 import { encryptConnectionSecrets, readConnectionSecret } from "@/lib/security/emailConnectionSecrets";
 
 export function oauthClient() {

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { formatMoney } from "@/lib/calendarEvents";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 type SubscriptionItem = {
   id: string;

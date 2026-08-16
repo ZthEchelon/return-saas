@@ -1,5 +1,5 @@
 import { ImapFlow } from "imapflow";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 import { readConnectionSecret } from "@/lib/security/emailConnectionSecrets";
 
 type ImapAuth =

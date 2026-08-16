@@ -7,7 +7,6 @@ type GmailStatus = {
   needsReauth: boolean;
   emailAddress: string | null;
   scope?: string | null;
-  scopes?: string | null;
   scanMode?: "ALL" | "RECEIPTS_ONLY" | "SHIPPING_ONLY" | "SUBSCRIPTIONS_ONLY";
   lastScanAt?: string | null;
 };
@@ -103,7 +102,7 @@ export default function PrivacySettings() {
           {status?.emailAddress ? `Email: ${status.emailAddress}` : "No connected account"}
         </div>
         <div className="mt-2 text-xs text-slate-400">
-          Scopes: {status?.scopes ?? status?.scope ?? "—"}
+          Scopes: {status?.scope ?? "—"}
         </div>
         <div className="mt-2 text-xs text-slate-400">
           Last scan: {status?.lastScanAt ? new Date(status.lastScanAt).toLocaleString() : "—"}

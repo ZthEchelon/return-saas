@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, CheckCircle2, Package, RefreshCw, Truck } from "lucide-react";
-import { formatMoney } from "@/lib/calendarEvents";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 type ReturnItem = {
   id: string;

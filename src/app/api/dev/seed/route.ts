@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 
 function isoUTCDate(y: number, mZero: number, d: number) {
   return new Date(Date.UTC(y, mZero, d));

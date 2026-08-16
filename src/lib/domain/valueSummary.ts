@@ -1,5 +1,5 @@
 import { ValueEventType } from "@prisma/client";
-import { prisma } from "./prisma";
+import { prisma } from "@/lib/data-access/prisma";
 
 export type ValueEventDTO = {
   id: string;

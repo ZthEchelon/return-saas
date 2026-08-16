@@ -1,6 +1,6 @@
 //one scheduler file 
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 
 // ---------- date helpers (UTC day buckets) ----------
 function startOfDayUTC(d: Date) {

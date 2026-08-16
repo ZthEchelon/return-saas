@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 import { isAuthorizedCronRequest } from "@/lib/security/cronAuth";
-import { sendEmail } from "@/lib/email";
-import { buildDigestForUser } from "@/lib/notifications/digestBuilder";
-import { claimDueDigestJobs, nextRetrySendAt, scheduleNextDigestJob } from "@/lib/notifications/digestJobScheduler";
+import { sendEmail } from "@/lib/services/email";
+import { buildDigestForUser } from "@/lib/domain/notifications/digestBuilder";
+import { claimDueDigestJobs, nextRetrySendAt, scheduleNextDigestJob } from "@/lib/domain/notifications/digestJobScheduler";
 
 export const runtime = "nodejs";
 

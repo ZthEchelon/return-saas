@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { getAuthedGmail } from "@/lib/gmailClient";
-import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/gmailPurchaseParser";
-import type { Purchase } from "@/lib/receipts/gmailPurchaseParser";
+import { prisma } from "@/lib/data-access/prisma";
+import { getAuthedGmail } from "@/lib/services/gmailClient";
+import { parsePurchaseFromRawGmailMessage } from "@/lib/domain/receipts/gmailPurchaseParser";
+import type { Purchase } from "@/lib/domain/receipts/gmailPurchaseParser";
 
 /**
  * Reprocess all Gmail receipts with pagination and progress tracking
@@ -111,16 +111,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      const prismaAny = prisma as typeof prisma & {
-        purchase: { upsert: (args: unknown) => Promise<{ id: string }> };
-        purchaseItem: {
-          deleteMany: (args: unknown) => Promise<unknown>;
-          createMany: (args: unknown) => Promise<unknown>;
-        };
-        purchaseAttachment: { createMany: (args: unknown) => Promise<unknown> };
-      };
-
-      const purchaseRow = await prismaAny.purchase.upsert({
+      const purchaseRow = await prisma.purchase.upsert({
         where: { userId_sourceEmailId: { userId, sourceEmailId: updated.messageId } },
         create: {
           userId,
@@ -143,7 +134,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (Array.isArray(updated.items)) {
-        await prismaAny.purchaseItem.deleteMany({ where: { purchaseId: purchaseRow.id } });
+        await prisma.purchaseItem.deleteMany({ where: { purchaseId: purchaseRow.id } });
         const items = (updated.items as Array<{ name?: string; quantity?: number; price?: number }>).map((it) => ({
           purchaseId: purchaseRow.id,
           title: String(it.name ?? "Item"),
@@ -152,7 +143,7 @@ export async function POST(req: NextRequest) {
           currency: (updated.currency ?? "CAD").toUpperCase(),
         }));
         if (items.length > 0) {
-          await prismaAny.purchaseItem.createMany({ data: items });
+          await prisma.purchaseItem.createMany({ data: items });
         }
       }
 
@@ -162,7 +153,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (docs.length > 0) {
-        await prismaAny.purchaseAttachment.createMany({
+        await prisma.purchaseAttachment.createMany({
           data: docs.map((doc) => ({
             purchaseId: purchaseRow.id,
             storageKey: doc.storagePath,

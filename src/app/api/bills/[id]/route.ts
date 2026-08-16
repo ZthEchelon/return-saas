@@ -2,8 +2,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { scheduleBillDueSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { prisma } from "@/lib/data-access/prisma";
+import { scheduleBillDueSoon } from "@/lib/domain/notifications/eventNotificationScheduler";
 // no prisma enum import to avoid version/type export issues
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

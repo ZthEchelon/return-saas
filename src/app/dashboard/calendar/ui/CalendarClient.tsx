@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CalendarEvent } from "@/lib/calendarEvents";
-import { formatMoney } from "@/lib/calendarEvents";
+import type { CalendarEvent } from "@/lib/utils/calendarEvents";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 type Props = {
   initialStart: string;

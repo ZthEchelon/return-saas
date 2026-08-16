@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import { google } from "googleapis";
-import { prisma } from "@/lib/prisma";
-import { oauthClient } from "@/lib/gmailClient";
+import { prisma } from "@/lib/data-access/prisma";
+import { oauthClient } from "@/lib/services/gmailClient";
 import { encryptConnectionSecrets } from "@/lib/security/emailConnectionSecrets";
 import { isValidOAuthState, OAUTH_STATE_COOKIE } from "@/lib/security/oauthState";
 
@@ -59,7 +59,6 @@ export async function GET(req: NextRequest) {
       }),
       expiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
       scope: tokens.scope ?? null,
-      scopes: tokens.scope ?? null,
     },
     update: {
       provider: "GMAIL",
@@ -70,7 +69,6 @@ export async function GET(req: NextRequest) {
       }),
       expiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
       scope: tokens.scope ?? null,
-      scopes: tokens.scope ?? null,
     },
   });
 

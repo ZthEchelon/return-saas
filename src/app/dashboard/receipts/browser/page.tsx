@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/calendarEvents";
+import { prisma } from "@/lib/data-access/prisma";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 export default async function ReceiptBrowserPage() {
   const { userId } = await auth();

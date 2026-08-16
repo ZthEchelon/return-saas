@@ -3,8 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripeClient";
-import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/services/stripeClient";
+import { prisma } from "@/lib/data-access/prisma";
 
 export async function POST(req: NextRequest) {
   const sig = (await headers()).get("stripe-signature");

@@ -2,7 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 
 export const runtime = "nodejs";
 
@@ -21,7 +21,6 @@ export async function GET() {
     needsReauth: !hasRefresh && (!hasAccess || !notExpired),
     emailAddress: conn?.emailAddress ?? null,
     scope: conn?.scope ?? null,
-    scopes: conn?.scopes ?? null,
     scanMode: conn?.scanMode ?? "ALL",
     lastScanAt: conn?.lastScanAt ?? null,
   });

@@ -1,28 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/calendarEvents";
+import { prisma } from "@/lib/data-access/prisma";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 export default async function PurchasesInboxPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const prismaAny = prisma as typeof prisma & {
-    purchase: { findMany: (args: unknown) => Promise<PurchaseRow[]> };
-  };
-
-  type PurchaseRow = {
-    id: string;
-    merchant: string;
-    totalCents: number | null;
-    currency: string;
-    purchasedAt: Date;
-    orderNumber: string | null;
-    returns: { status: string }[];
-  };
-
-  const purchases: PurchaseRow[] = await prismaAny.purchase.findMany({
+  const purchases = await prisma.purchase.findMany({
     where: { userId },
     include: { returns: true },
     orderBy: { purchasedAt: "desc" },
@@ -54,7 +40,7 @@ export default async function PurchasesInboxPage() {
         <div className="rounded-2xl border bg-white/80 p-6 text-sm text-slate-600">No purchases yet.</div>
       ) : (
         <div className="space-y-3">
-          {purchases.map((p: PurchaseRow) => {
+          {purchases.map((p) => {
             const returnStatus = p.returns[0]?.status ?? null;
             return (
               <Link key={p.id} href={`/dashboard/receipts/inbox/${p.id}`} className="block">

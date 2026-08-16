@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 import { DateTime } from "luxon";
 
 function iso(d?: Date | null) {

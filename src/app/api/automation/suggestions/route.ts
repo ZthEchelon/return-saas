@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { scheduleBillDueSoon, scheduleReturnDeadlineSoon, scheduleReturnDelivered, scheduleSubscriptionRenewalSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { prisma } from "@/lib/data-access/prisma";
+import { scheduleBillDueSoon, scheduleReturnDeadlineSoon, scheduleReturnDelivered, scheduleSubscriptionRenewalSoon } from "@/lib/domain/notifications/eventNotificationScheduler";
 import { refreshShipmentTimeline, syncRefundExpectation } from "@/lib/domain/shipping/tracking";
 
 export const runtime = "nodejs";
@@ -234,8 +234,6 @@ export async function POST(req: NextRequest) {
         amountCents: amountCents ?? 0,
         currency,
         renewalDate,
-        renewalAt: renewalDate,
-        renewalCadence: cadence,
         cadence,
         status: "ACTIVE",
         trialEndAt,

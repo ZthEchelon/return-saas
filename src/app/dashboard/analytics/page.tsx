@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Flame, TrendingUp, PieChart as PieIcon, RefreshCcw, ArrowUpRight } from "lucide-react";
-import { formatMoney } from "@/lib/calendarEvents";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 interface Analytics {
   currentMonthStats: {

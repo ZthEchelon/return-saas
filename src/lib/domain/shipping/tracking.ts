@@ -1,6 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
-import { scheduleReturnDelivered } from "@/lib/notifications/eventNotificationScheduler";
+import { prisma } from "@/lib/data-access/prisma";
+import { scheduleReturnDelivered } from "@/lib/domain/notifications/eventNotificationScheduler";
 
 type ShipmentStage = { code: string; label: string };
 

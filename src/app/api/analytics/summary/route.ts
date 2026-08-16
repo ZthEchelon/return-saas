@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { computeValueSummary } from "@/lib/valueSummary";
+import { computeValueSummary } from "@/lib/domain/valueSummary";
 
 export const runtime = "nodejs";
 

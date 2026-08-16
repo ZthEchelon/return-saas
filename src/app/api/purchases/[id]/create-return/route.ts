@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 import { Prisma } from "@prisma/client";
-import { scheduleReturnDeadlineSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { scheduleReturnDeadlineSoon } from "@/lib/domain/notifications/eventNotificationScheduler";
 
 export const runtime = "nodejs";
 
@@ -20,19 +20,7 @@ export async function POST(
   const { userId } = await auth();
   if (!userId) return new NextResponse("Unauthorized", { status: 401 });
 
-  type PurchaseRow = {
-    id: string;
-    merchant: string;
-    totalCents: number | null;
-    currency: string;
-    purchasedAt: Date;
-  };
-
-  const prismaAny = prisma as typeof prisma & {
-    purchase: { findFirst: (args: unknown) => Promise<PurchaseRow | null> };
-  };
-
-  const purchase = await prismaAny.purchase.findFirst({ where: { id, userId } });
+  const purchase = await prisma.purchase.findFirst({ where: { id, userId } });
   if (!purchase) return new NextResponse("Not found", { status: 404 });
 
   const body = await req.json().catch(() => ({}));

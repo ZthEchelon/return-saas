@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/calendarEvents";
+import { prisma } from "@/lib/data-access/prisma";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 import BillTransactionHistory from "@/app/dashboard/bills/ui/BillTransactionHistory";
 
 export default async function BillDetailPage({

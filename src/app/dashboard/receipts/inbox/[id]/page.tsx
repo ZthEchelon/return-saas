@@ -1,31 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/calendarEvents";
+import { prisma } from "@/lib/data-access/prisma";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 export default async function PurchaseDetailPage({ params }: { params: { id: string } }) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  const prismaAny = prisma as typeof prisma & {
-    purchase: { findFirst: (args: unknown) => Promise<PurchaseDetail | null> };
-  };
-
-  type PurchaseDetail = {
-    id: string;
-    merchant: string;
-    totalCents: number | null;
-    currency: string;
-    purchasedAt: Date;
-    orderNumber: string | null;
-    source: string;
-    items: { id: string; title: string; qty: number | null; priceCents: number | null; currency: string }[];
-    attachments: { id: string; storageKey: string }[];
-    returns: { id: string; status: string }[];
-  };
-
-  const purchase: PurchaseDetail | null = await prismaAny.purchase.findFirst({
+  const purchase = await prisma.purchase.findFirst({
     where: { id: params.id, userId },
     include: { items: true, attachments: true, returns: true },
   });
@@ -73,7 +56,7 @@ export default async function PurchaseDetailPage({ params }: { params: { id: str
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
           <div className="text-sm font-semibold text-slate-900">Items</div>
           <ul className="mt-2 space-y-1 text-sm text-slate-600">
-            {purchase.items.map((item: PurchaseDetail["items"][number]) => (
+            {purchase.items.map((item) => (
               <li key={item.id}>
                 {item.title}
                 {item.qty ? ` × ${item.qty}` : ""}
@@ -88,7 +71,7 @@ export default async function PurchaseDetailPage({ params }: { params: { id: str
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
           <div className="text-sm font-semibold text-slate-900">Attachments</div>
           <div className="mt-3 space-y-2">
-            {purchase.attachments.map((doc: PurchaseDetail["attachments"][number]) => (
+            {purchase.attachments.map((doc) => (
               <div key={doc.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
                 <div className="truncate">{doc.storageKey}</div>
                 <a href={doc.storageKey} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">

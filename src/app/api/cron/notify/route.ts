@@ -2,7 +2,7 @@
 // safe to run daily; scheduler functions handle deduplication via eventKey
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 import { isAuthorizedCronRequest } from "@/lib/security/cronAuth";
 import {
   scheduleSubscriptionRenewalSoon,
@@ -10,7 +10,7 @@ import {
   scheduleRefundChecks,
   scheduleRefundOverdueOnce,
   scheduleBillDueSoon,
-} from "@/lib/notifications/eventNotificationScheduler";
+} from "@/lib/domain/notifications/eventNotificationScheduler";
 
 export const runtime = "nodejs";
 

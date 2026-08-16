@@ -2,8 +2,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { parseReceiptUpload } from "@/lib/receipts/uploadedReceiptParser";
+import { prisma } from "@/lib/data-access/prisma";
+import { parseReceiptUpload } from "@/lib/domain/receipts/uploadedReceiptParser";
 import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";

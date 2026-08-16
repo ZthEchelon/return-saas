@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { parseISODateParam } from "@/lib/dateParams";
+import { prisma } from "@/lib/data-access/prisma";
+import { parseISODateParam } from "@/lib/utils/dateParams";
 
 type EventType =
   | "RENEWAL"
@@ -82,18 +82,10 @@ export async function GET(req: NextRequest) {
   const startMonthKey = start.toISOString().slice(0, 7);
   const endMonthKey = end.toISOString().slice(0, 7);
 
-  // Query raw records inside the range (+ small buffer for derived events)
-  // Guard against a stale Prisma client missing snoozedEvent (prevents 500s while still serving events).
-  const snoozedEventsPromise: Promise<{ eventId: string; snoozedUntil: Date }[]> =
-    (prisma as any).snoozedEvent?.findMany
-      ? prisma.snoozedEvent.findMany({
-          where: { userId, snoozedUntil: { gt: now } },
-          select: { eventId: true, snoozedUntil: true },
-        })
-      : Promise.resolve([]);
-  if (!(prisma as any).snoozedEvent?.findMany) {
-    console.warn("prisma.snoozedEvent missing; rerun prisma generate to enable snoozing.");
-  }
+  const snoozedEventsPromise = prisma.snoozedEvent.findMany({
+    where: { userId, snoozedUntil: { gt: now } },
+    select: { eventId: true, snoozedUntil: true },
+  });
 
   const [activeSubs, cancelledSubs, returnItems, bills, payments, snoozedEvents] = await Promise.all([
     prisma.subscription.findMany({

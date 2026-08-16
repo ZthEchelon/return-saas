@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 import { isAuthorizedCronRequest } from "@/lib/security/cronAuth";
 import { refreshShipmentTimeline } from "@/lib/domain/shipping/tracking";
-import { scheduleRefundOverdueOnce } from "@/lib/notifications/eventNotificationScheduler";
+import { scheduleRefundOverdueOnce } from "@/lib/domain/notifications/eventNotificationScheduler";
 
 export const runtime = "nodejs";
 

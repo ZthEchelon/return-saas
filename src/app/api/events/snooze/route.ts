@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/data-access/prisma";
 
 type SnoozePayload = {
   id?: string;
@@ -28,12 +28,7 @@ export async function POST(req: NextRequest) {
   const snoozedUntil = new Date();
   snoozedUntil.setUTCDate(snoozedUntil.getUTCDate() + delayDays);
 
-  const snoozedDelegate = (prisma as any).snoozedEvent;
-  if (!snoozedDelegate?.upsert) {
-    return NextResponse.json({ error: "Snooze storage unavailable. Please run prisma generate." }, { status: 500 });
-  }
-
-  await snoozedDelegate.upsert({
+  await prisma.snoozedEvent.upsert({
     where: { userId_eventId: { userId, eventId: body.id } },
     create: { userId, eventId: body.id, snoozedUntil },
     update: { snoozedUntil },

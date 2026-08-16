@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { parsePurchaseFromRawGmailMessage } from "@/lib/receipts/gmailPurchaseParser";
-import { saveReceiptAttachment } from "@/lib/receipts/receiptAttachmentStorage";
+import { prisma } from "@/lib/data-access/prisma";
+import { parsePurchaseFromRawGmailMessage } from "@/lib/domain/receipts/gmailPurchaseParser";
+import { saveReceiptAttachment } from "@/lib/domain/receipts/receiptAttachmentStorage";
 import { getAuthedImap } from "@/lib/services/imapClient";
 import crypto from "crypto";
 

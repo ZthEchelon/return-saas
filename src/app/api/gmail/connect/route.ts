@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
-import { oauthClient } from "@/lib/gmailClient";
+import { oauthClient } from "@/lib/services/gmailClient";
 import { generateOAuthState, OAUTH_STATE_COOKIE } from "@/lib/security/oauthState";
 
 export const runtime = "nodejs";

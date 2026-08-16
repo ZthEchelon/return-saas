@@ -2,8 +2,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
-import { scheduleSubscriptionRenewalSoon } from "@/lib/notifications/eventNotificationScheduler";
+import { prisma } from "@/lib/data-access/prisma";
+import { scheduleSubscriptionRenewalSoon } from "@/lib/domain/notifications/eventNotificationScheduler";
 
 export async function GET() {
   const { userId } = await auth();
@@ -60,8 +60,6 @@ export async function POST(req: NextRequest) {
       currency,
       renewalDate: rd,
       cadence,
-      renewalAt: rd,
-      renewalCadence: cadence,
       status: "ACTIVE",
       cancelUrl: cancelUrl ?? null,
       cancelInstructions: cancelInstructions ?? null,

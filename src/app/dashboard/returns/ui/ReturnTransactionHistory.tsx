@@ -1,5 +1,5 @@
-import { getReturnTransactionHistory } from "@/lib/transactionHistory";
-import { formatMoney } from "@/lib/calendarEvents";
+import { getReturnTransactionHistory } from "@/lib/utils/transactionHistory";
+import { formatMoney } from "@/lib/utils/calendarEvents";
 
 interface ReturnTransactionHistoryProps {
   userId: string;
