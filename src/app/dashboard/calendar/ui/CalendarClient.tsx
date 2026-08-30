@@ -163,7 +163,7 @@ function editLinkFor(ev: CalendarEvent) {
   return "#";
 }
 
-export default function CalendarClient({ initialStart, initialEnd, initialEvents }: Props) {
+export default function CalendarClient({ initialStart, initialEvents }: Props) {
   const [view, setView] = useState<ViewMode>("agenda");
   const [month, setMonth] = useState(() => startOfMonthUTC(parseISODateOnly(initialStart)));
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -517,7 +517,11 @@ export default function CalendarClient({ initialStart, initialEnd, initialEvents
               key={f.key}
               onClick={() => {
                 const next = new Set(filterTypes);
-                next.has(f.key) ? next.delete(f.key) : next.add(f.key);
+                if (next.has(f.key)) {
+                  next.delete(f.key);
+                } else {
+                  next.add(f.key);
+                }
                 setFilterTypes(next);
               }}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${

@@ -8,8 +8,9 @@
     "vercel-build": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "audit:parses": "node scripts/parseAudit.js",
+    "audit:parses": "node scripts/parseAudit.mjs",
     "postinstall": "prisma generate",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.mts\"",
     "secrets:encrypt": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/encryptExistingSecrets.mts"

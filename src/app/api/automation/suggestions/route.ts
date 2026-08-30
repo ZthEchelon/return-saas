@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/data-access/prisma";
+import type { Prisma } from "@prisma/client";
 import { scheduleBillDueSoon, scheduleReturnDeadlineSoon, scheduleReturnDelivered, scheduleSubscriptionRenewalSoon } from "@/lib/domain/notifications/eventNotificationScheduler";
 import { refreshShipmentTimeline, syncRefundExpectation } from "@/lib/domain/shipping/tracking";
 
@@ -288,7 +289,7 @@ export async function POST(req: NextRequest) {
       merchant,
       amountCents,
       currency,
-      draft: mergedDraft as any,
+      draft: mergedDraft as Prisma.InputJsonValue,
     },
   });
 

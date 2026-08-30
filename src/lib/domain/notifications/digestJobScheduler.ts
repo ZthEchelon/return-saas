@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/data-access/prisma";
+import type { NotificationJob } from "@prisma/client";
 import { DateTime } from "luxon";
 import crypto from "crypto";
 
@@ -71,7 +72,7 @@ export async function cancelPendingDigestJobs(userId: string) {
 export async function claimDueDigestJobs(limit = 25) {
   const lockId = crypto.randomUUID();
 
-  const jobs = await prisma.$queryRaw<any[]>`
+  const jobs = await prisma.$queryRaw<NotificationJob[]>`
     WITH picked AS (
       SELECT id
       FROM "NotificationJob"

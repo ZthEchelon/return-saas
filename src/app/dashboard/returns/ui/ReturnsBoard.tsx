@@ -64,26 +64,26 @@ function deriveStage(item: ReturnItem): StageKey | "refunded" {
   return "to_ship";
 }
 
-function normalizeReturn(r: any): ReturnItem {
+function normalizeReturn(r: Record<string, unknown>): ReturnItem {
   return {
-    id: r.id,
-    store: r.store,
-    itemNote: r.itemNote ?? null,
-    amountCents: r.amountCents ?? null,
-    currency: r.currency ?? "CAD",
-    purchaseDate: typeof r.purchaseDate === "string" ? r.purchaseDate : new Date(r.purchaseDate).toISOString(),
-    returnBy: typeof r.returnBy === "string" ? r.returnBy : new Date(r.returnBy).toISOString(),
-    returnWindowDays: r.returnWindowDays ?? 30,
-    refundAmountCents: r.refundAmountCents ?? null,
-    refundExpectedAt: r.refundExpectedAt ? new Date(r.refundExpectedAt).toISOString() : null,
-    refundedDate: r.refundedDate ? new Date(r.refundedDate).toISOString() : null,
-    status: r.status,
-    dropoffDate: r.dropoffDate ? new Date(r.dropoffDate).toISOString() : null,
-    trackingNumber: r.trackingNumber ?? null,
-    carrier: r.carrier ?? null,
-    deliveredAt: r.deliveredAt ? new Date(r.deliveredAt).toISOString() : null,
-    refundSlaDays: r.refundSlaDays ?? 14,
-    refundType: r.refundType ?? null,
+    id: String(r.id),
+    store: String(r.store),
+    itemNote: (r.itemNote as string | null) ?? null,
+    amountCents: (r.amountCents as number | null) ?? null,
+    currency: (r.currency as string) ?? "CAD",
+    purchaseDate: typeof r.purchaseDate === "string" ? r.purchaseDate : new Date(r.purchaseDate as string | number | Date).toISOString(),
+    returnBy: typeof r.returnBy === "string" ? r.returnBy : new Date(r.returnBy as string | number | Date).toISOString(),
+    returnWindowDays: (r.returnWindowDays as number) ?? 30,
+    refundAmountCents: (r.refundAmountCents as number | null) ?? null,
+    refundExpectedAt: r.refundExpectedAt ? new Date(r.refundExpectedAt as string | number | Date).toISOString() : null,
+    refundedDate: r.refundedDate ? new Date(r.refundedDate as string | number | Date).toISOString() : null,
+    status: (r.status as ReturnItem["status"]) || "NOT_STARTED",
+    dropoffDate: r.dropoffDate ? new Date(r.dropoffDate as string | number | Date).toISOString() : null,
+    trackingNumber: (r.trackingNumber as string | null) ?? null,
+    carrier: (r.carrier as string | null) ?? null,
+    deliveredAt: r.deliveredAt ? new Date(r.deliveredAt as string | number | Date).toISOString() : null,
+    refundSlaDays: (r.refundSlaDays as number) ?? 14,
+    refundType: (r.refundType as string | null) ?? null,
   };
 }
 

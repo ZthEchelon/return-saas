@@ -432,35 +432,6 @@ function Row({ label, value, accent }: { label: string; value: string | number; 
   );
 }
 
-
-interface StatCardProps {
-  label: string;
-  value: string;
-  color: "emerald" | "blue" | "green" | "slate";
-  icon: string;
-}
-
-function StatCard({ label, value, color, icon }: StatCardProps) {
-  const colorMap = {
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    blue: "bg-blue-50 text-blue-700 border-blue-200",
-    green: "bg-green-50 text-green-700 border-green-200",
-    slate: "bg-slate-50 text-slate-700 border-slate-200",
-  };
-
-  return (
-    <div className={`rounded-xl border p-4 ${colorMap[color]}`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold opacity-75">{label}</p>
-          <p className="mt-2 text-2xl font-bold">{value}</p>
-        </div>
-        <span className="text-2xl">{icon}</span>
-      </div>
-    </div>
-  );
-}
-
 function BarChart({
   data,
 }: {

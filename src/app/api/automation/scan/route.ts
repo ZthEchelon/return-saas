@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/data-access/prisma";
+import type { Prisma } from "@prisma/client";
 import { parsePurchaseFromRawGmailMessage } from "@/lib/domain/receipts/gmailPurchaseParser";
 import { saveReceiptAttachment } from "@/lib/domain/receipts/receiptAttachmentStorage";
 import { getAuthedImap } from "@/lib/services/imapClient";
@@ -71,10 +72,6 @@ function detectSubscriptionItem(subject: string | null, decoded: string) {
   if (trialHints) return "TRIAL" as const;
   if (renewalHints) return "RENEWAL" as const;
   return "RENEWAL" as const;
-}
-
-function toISODateOnly(d: Date) {
-  return d.toISOString().slice(0, 10);
 }
 
 export const runtime = "nodejs";
@@ -280,8 +277,6 @@ export async function POST(req: NextRequest) {
         if (!suggestionType) {
           continue;
         }
-        const subj = (tx.subject ?? "").toLowerCase();
-        const merch = (tx.merchant ?? "").toLowerCase();
         const type = suggestionType;
 
         const detected = tx.purchasedAt ?? new Date();
@@ -329,7 +324,7 @@ export async function POST(req: NextRequest) {
             confidence: "MEDIUM",
             reasons: [`Built from transaction (${tx.rawSource})`],
             messageIds: [msg.messageId],
-            draft: draft as any,
+            draft: draft as Prisma.InputJsonValue,
           },
         });
 

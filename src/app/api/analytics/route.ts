@@ -40,7 +40,7 @@ export async function GET() {
 
   try {
     const now = new Date();
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    void now;
 
     // Get all bills for this user
     type BillRow = { amountCents: number | null; payments: { paidAt: Date | null; amountCents: number | null }[] };
@@ -147,7 +147,6 @@ export async function GET() {
     // Category breakdown (overall percentage)
     const totalSpent = subscriptions.reduce((sum, s) => sum + s.amountCents, 0) +
                        bills.reduce((sum, b) => sum + (b.amountCents ?? 0), 0);
-    const totalRefunded = returns.reduce((sum, r) => sum + (r.refundAmountCents ?? 0), 0);
 
     const subTotal = subscriptions.reduce((sum, s) => sum + s.amountCents, 0);
     const billTotal = bills.reduce((sum, b) => sum + (b.amountCents ?? 0), 0);
