@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run check)",
+      "Bash(npm run check:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run test)",
+      "Bash(npm run typecheck)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx prisma generate)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  }
+}
