@@ -13,6 +13,7 @@
     "audit:parses": "node scripts/parseAudit.mjs",
     "postinstall": "prisma generate",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.mts\"",
+    "check": "npm run lint && npm run typecheck && npm run test",
     "secrets:encrypt": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/encryptExistingSecrets.mts"
   },
   "dependencies": {
